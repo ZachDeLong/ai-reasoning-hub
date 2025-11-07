@@ -180,8 +180,8 @@ def load_rows(search="", cats=None, only_summarized=False, min_score=0, only_sco
     return rows
 
 # ---------- UI ----------
-st.set_page_config(page_title="The Reasoning Nexus", layout="wide")
-st.title("The Reasoning Nexus")
+st.set_page_config(page_title="Reasoning Hub", layout="wide")
+st.title("Reasoning Hub")
 
 with st.sidebar:
     st.subheader("Filters")
