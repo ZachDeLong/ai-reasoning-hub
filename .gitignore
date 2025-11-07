@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.env
+.venv/
+*.db
+data/
+openai_api_key.txt
+
+# Streamlit
+.streamlit/
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# System
+.idea/
