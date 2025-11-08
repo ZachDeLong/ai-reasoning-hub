@@ -6,8 +6,7 @@ __pycache__/
 *.sqlite3
 .env
 .venv/
-*.db
-data/
+!data/papers.db
 openai_api_key.txt
 
 # Streamlit
