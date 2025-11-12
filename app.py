@@ -208,7 +208,7 @@ with st.sidebar:
 
     min_score = st.slider("Min excitement score", min_value=0, max_value=10, value=0, step=1)
     only_scored = st.checkbox("Only show scored papers", value=False)
-    sort = st.radio("Sort by", options=["Newest", "Score"], horizontal=True)
+    sort = st.radio("Sort by", options=["Newest", "Score"], horizontal=True, index=1)
 
     col_a, col_b = st.columns(2)
     with col_a:
