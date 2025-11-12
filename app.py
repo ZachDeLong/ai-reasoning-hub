@@ -184,7 +184,7 @@ def load_rows(search="", cats=None, only_summarized=False, min_score=0, only_sco
     return rows
 
 # ---------- UI ----------
-st.set_page_config(page_title="Reasoning Hub", layout="wide")
+st.set_page_config(page_title="Reasoning Hub", layout="wide", initial_sidebar_state="collapsed")
 st.title("Reasoning Hub")
 
 with st.sidebar:
@@ -240,7 +240,7 @@ page_rows = rows[start:end]
 
 st.caption(f"{len(rows)} results")
 if rows:
-    col1, col2, col3 = st.columns([1, 3, 1])
+    col1, col2, col3 = st.columns([1, 13, 1])
     with col1:
         disabled = st.session_state.page <= 0
         if st.button("◀ Prev", key="prev_page", disabled=disabled):
