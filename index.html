@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reasoning Hub</title>
+  <!-- 1. Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <!-- 2. Load React libraries -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <!-- 3. Load Babel to transpile JSX in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 4. Load Marked.js to render Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+
+  <style>
+    /* Basic font setup */
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Add a dark mode class to the html tag if the user prefers it */
+    .dark body {
+      background-color: #111827;
+      /* gray-900 */
+    }
+
+    /* Simple scrollbar styling for Chrome/Safari */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #9ca3af;
+      /* gray-400 */
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+      /* gray-500 */
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f3f4f6;
+      /* gray-100 */
+    }
+
+    .dark ::-webkit-scrollbar-track {
+      background: #1f2937;
+      /* gray-800 */
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 4. This is the root element where our React app will be mounted -->
+  <div id="root"></div>
+
+
+  <!-- 5. This is our entire React application, written in JSX -->
+  <!-- We mark it as "text/babel" so the Babel library can transpile it -->
+  <script type="text/babel">
+    const { useState, useMemo, useCallback, useEffect } = React;
+
+
+    // --- Constants ---
+    const CARDS_PER_PAGE = 15;
+    const BREAKDOWN_MAX = { "Novelty": 3, "Impact": 4, "Results": 2, "Access": 1 };
+
+    // --- Utils ---
+
+
+    /**
+     * Gets a Tailwind color class based on the score (ported from Python)
+     */
+    const getScoreColor = (s) => {
+      if (s >= 9) return "text-blue-500 border-blue-500"; // bright blue for unicorns
+      if (s >= 8) return "text-green-600 border-green-600";
+      if (s >= 7) return "text-green-500 border-green-500";
+      if (s >= 6) return "text-lime-500 border-lime-500";
+      if (s >= 5) return "text-yellow-500 border-yellow-500";
+      if (s >= 4) return "text-amber-500 border-amber-500";
+      if (s >= 3) return "text-orange-500 border-orange-500";
+      return "text-red-500 border-red-500";
+    };
+
+
+    /**
+     * Parses the breakdown string "Novelty: 3, Impact: 4" into an object
+     */
+    const parseBreakdown = (breakdown) => {
+      const parts = {};
+      if (!breakdown) return parts;
+
+      breakdown.split(",").forEach(kv => {
+        if (kv.includes(":")) {
+          const [k, v] = kv.split(":");
+          try {
+            parts[k.trim()] = parseInt(v.trim(), 10);
+          } catch (e) {
+            parts[k.trim()] = 0;
+          }
+        }
+      });
+      return parts;
+    };
+
+
+    // --- Icon Components (Inline SVGs) ---
+
+
+    const SearchIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    );
+
+
+    const ChevronDownIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    );
+
+
+    const ChevronRightIcon = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    );
+
+
+    // --- UI Components ---
+
+
+    /**
+     * A custom switch toggle component
+     */
+    const CustomSwitch = ({ label, isChecked, onChange }) => {
+      return (
+        <label className="flex items-center justify-between cursor-pointer">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isChecked}
+            onClick={onChange}
+            className={`${isChecked ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+          >
+            <span
+              aria-hidden="true"
+              className={`${isChecked ? 'translate-x-5' : 'translate-x-0'
+                } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+            />
+          </button>
+        </label>
+      );
+    };
+
+
+    /**
+     * A custom segmented control for sorting
+     */
+    const SortToggle = ({ options, selected, onChange }) => {
+      return (
+        <div className="flex w-full rounded-lg bg-gray-100 dark:bg-gray-800 p-1">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => onChange(opt.value)}
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition-all
+               ${selected === opt.value
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }
+             `}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      );
+    };
+
+
+    /**
+     * An expandable section for summary and PDF
+     */
+    const ExpandableSection = ({ title, children, startOpen = false }) => {
+      const [isOpen, setIsOpen] = useState(startOpen);
+
+
+      return (
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex w-full items-center justify-between py-3 text-left font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+          >
+            <span>{title}</span>
+            {isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          </button>
+          {isOpen && (
+            <div className="pb-4 prose prose-sm dark:prose-invert max-w-none">
+              {typeof children === 'string' ? (
+                <div dangerouslySetInnerHTML={{ __html: marked.parse(children) }} />
+              ) : (
+                children
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+
+    /**
+     * The new visual score donut
+     */
+    const ScoreDonut = ({ score }) => {
+      if (score === 0) {
+        return (
+          <div className="flex flex-col items-center justify-center w-24 h-24 rounded-full border-4 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+            <span className="text-3xl font-bold text-gray-400 dark:text-gray-500">—</span>
+            <span className="text-xs font-medium text-gray-400 dark:text-gray-500">N/A</span>
+          </div>
+        );
+      }
+
+
+      const colorClasses = getScoreColor(score);
+
+      return (
+        <div className={`flex flex-col items-center justify-center w-24 h-24 rounded-full border-8 bg-white dark:bg-gray-800 flex-shrink-0 ${colorClasses}`}>
+          <span className="text-3xl font-bold">{score}</span>
+          <span className="text-xs font-medium -mt-1">/ 10</span>
+        </div>
+      );
+    };
+
+
+    /**
+     * The new visual score breakdown
+     */
+    const BreakdownVisual = ({ breakdownString }) => {
+      const breakdown = parseBreakdown(breakdownString);
+      const labels = ["Novelty", "Impact", "Results", "Access"];
+
+
+      return (
+        <div className="space-y-2">
+          {labels.map(label => {
+            const score = breakdown[label] || 0;
+            const max = BREAKDOWN_MAX[label] || 0;
+            if (max === 0) return null;
+
+
+            return (
+              <div key={label}>
+                <div className="flex justify-between items-center mb-0.5">
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</span>
+                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{score}/{max}</span>
+                </div>
+                <div className="flex space-x-1">
+                  {Array.from({ length: max }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-2 flex-1 rounded-sm ${i < score ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-600'
+                        }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+
+    /**
+     * The main component for displaying a single paper card
+     */
+    const PaperCard = ({ paper }) => {
+      const [showPdf, setShowPdf] = useState(false);
+
+      const score = paper.excitement_score || 0;
+      const assessment = (paper.excitement_reasoning || "").trim();
+
+
+      return (
+        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200 dark:border-gray-700">
+          <div className="p-5 flex flex-col md:flex-row gap-5">
+
+            {/* Left Column: Score & Breakdown */}
+            <div className="flex flex-col items-center md:w-32 flex-shrink-0 space-y-4">
+              <ScoreDonut score={score} />
+              {score > 0 && <BreakdownVisual breakdownString={paper.score_breakdown} />}
+            </div>
+
+            {/* Right Column: Content */}
+            <div className="flex-1 min-w-0">
+              {/* Header: Title & Authors */}
+              <a
+                href={paper.arxiv_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                {paper.title}
+              </a>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic truncate" title={paper.authors}>
+                {paper.authors}
+              </p>
+
+              {/* Meta: Date & Category */}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-2">
+                <span>{paper.date}</span>
+                {paper.reasoning_category && (
+                  <React.Fragment>
+                    <span>•</span>
+                    <span className="font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">{paper.reasoning_category}</span>
+                  </React.Fragment>
+                )}
+              </div>
+
+              {/* TLDR */}
+              {paper.tldr && (
+                <blockquote className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 border-l-4 border-gray-300 dark:border-gray-600 rounded-r-md">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {paper.tldr}
+                  </p>
+                </blockquote>
+              )}
+
+              {/* Assessment */}
+              {assessment && (
+                <div className="mt-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-gray-200">Assessment</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {assessment}
+                  </p>
+                </div>
+              )}
+
+
+              {/* Expandable Summary & PDF */}
+              <div className="mt-4 space-y-2">
+                {paper.summary_md && (
+                  <ExpandableSection title="Show full summary">
+                    {/* This will now be rendered as rich HTML */
+                      paper.summary_md
+                    }
+                  </ExpandableSection>
+                )}
+
+                {paper.arxiv_id && (
+                  <ExpandableSection title="Show PDF">
+                    <iframe
+                      src={`/api/pdf/${paper.arxiv_id}`}
+                      width="100%"
+                      height="600"
+                      className="border border-gray-300 dark:border-gray-700 rounded-md"
+                      title={`${paper.title} PDF`}
+                    />
+                  </ExpandableSection>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+
+    /**
+     * The sticky filter sidebar
+     */
+    const FilterSidebar = ({ filters, setFilters, allCategories, resultsCount }) => {
+
+      const handleFilterChange = (key, value) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+      };
+
+
+      const toggleCategory = (category) => {
+        setFilters(prev => {
+          const newCats = new Set(prev.selectedCategories);
+          if (newCats.has(category)) {
+            newCats.delete(category);
+          } else {
+            newCats.add(category);
+          }
+          return { ...prev, selectedCategories: newCats };
+        });
+      };
+
+      // debounce search input so there isnt a new API request every keystroke
+      const debounce = (func, delay) => {
+        let timeout;
+        return (...args) => {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            func.apply(this, args);
+          }, delay);
+        };
+      };
+
+      // debounced version of filter change function
+      // only updates the state and trigger an API call 300ms after typing stops
+      const debouncedSearchChange = useCallback(
+        debounce((value) => handleFilterChange('search', value), 300),
+        []
+      );
+
+
+      return (
+        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 md:h-screen md:sticky top-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-5">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reasoning Hub</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-6">
+            Showing {resultsCount} results
+          </p>
+
+
+          <div className="space-y-6">
+            {/* Search */}
+            <div>
+              <label htmlFor="search" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Search</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-400"><SearchIcon /></span>
+                </div>
+                <input
+                  type="text"
+                  id="search"
+                  // We use defaultValue for an uncontrolled component that is
+                  // synced via the debounced handler
+                  defaultValue={filters.search}
+                  onChange={e => debouncedSearchChange(e.target.value)}
+                  placeholder="Search title, tldr, summary..."
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+
+            {/* Sort */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Sort by</label>
+              <SortToggle
+                options={[
+                  { label: 'Newest', value: 'newest' },
+                  { label: 'Score', value: 'score' },
+                ]}
+                selected={filters.sort}
+                onChange={val => handleFilterChange('sort', val)}
+              />
+            </div>
+
+
+            {/* Toggles */}
+            <div className="space-y-3">
+              <CustomSwitch
+                label="Summarized Only"
+                isChecked={filters.onlySummarized}
+                onChange={() => handleFilterChange('onlySummarized', !filters.onlySummarized)}
+              />
+              <CustomSwitch
+                label="Scored Only"
+                isChecked={filters.onlyScored}
+                onChange={() => handleFilterChange('onlyScored', !filters.onlyScored)}
+              />
+            </div>
+
+
+            {/* Min Score Slider */}
+            <div>
+              <label htmlFor="minScore" className="flex justify-between text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                <span>Min excitement score</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{filters.minScore} / 10</span>
+              </label>
+              <input
+                type="range"
+                id="minScore"
+                min="0"
+                max="10"
+                step="1"
+                value={filters.minScore}
+                onChange={e => handleFilterChange('minScore', parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+            </div>
+
+            {/* Categories */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Categories</label>
+
+
+              <div className="flex flex-wrap gap-2">
+                {allCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => toggleCategory(cat)}
+                    className={`px-3 py-1 text-sm font-medium rounded-full transition-all
+                     ${filters.selectedCategories.has(cat)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }
+                   `}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+
+    /**
+     * Pagination controls
+     */
+    const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+      // Don't show pagination if there's only one page
+      if (totalPages <= 1) {
+        return null;
+      }
+
+      return (
+        <div className="flex items-center justify-between mt-6">
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 0}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            ◀ Prev
+          </button>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Page {currentPage + 1} of {totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages - 1}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Next ▶
+          </button>
+        </div>
+      );
+    };
+
+
+
+
+    /**
+     * Helper to build query strings
+     */
+    const buildQueryString = (filters, page) => {
+      const params = new URLSearchParams();
+
+      if (filters.search) params.append('search', filters.search);
+      filters.selectedCategories.forEach(cat => {
+        params.append('category', cat);
+      });
+      if (filters.onlySummarized) params.append('onlySummarized', 'true');
+      if (filters.minScore > 0) params.append('minScore', filters.minScore);
+      if (filters.onlyScored) params.append('onlyScored', 'true');
+      if (filters.sort) params.append('sort', filters.sort);
+      if (page) params.append('page', page);
+
+      return params.toString();
+    };
+
+
+
+
+    /**
+     * Main App Component
+     */
+    function App() {
+      const [filters, setFilters] = useState({
+        search: "",
+        selectedCategories: new Set(),
+        onlySummarized: false,
+        minScore: 0,
+        onlyScored: false,
+        sort: "score",
+      });
+
+      const [currentPage, setCurrentPage] = useState(0);
+
+      // --- New State for Fetched Data ---
+      const [papers, setPapers] = useState([]);
+      const [allCategories, setAllCategories] = useState([]);
+      const [totalPages, setTotalPages] = useState(1);
+      const [resultsCount, setResultsCount] = useState(0);
+      const [isLoading, setIsLoading] = useState(true);
+
+
+      // --- Fetch Categories on Load ---
+      useEffect(() => {
+        // Fetch the categories for the filter sidebar
+        fetch('/api/categories')
+          .then(res => res.json())
+          .then(data => {
+            setAllCategories(data);
+          })
+          .catch(err => console.error("Failed to fetch categories:", err));
+      }, []); // Empty array means run once on component mount
+
+
+      // --- Fetch Papers when Filters or Page Change ---
+      useEffect(() => {
+        setIsLoading(true);
+        const queryString = buildQueryString(filters, currentPage);
+
+        // We use a small timeout to allow the "page reset" to happen first
+        // if filters changed. This prevents fetching the wrong page.
+        const timer = setTimeout(() => {
+          fetch(`/api/papers?${queryString}`)
+            .then(res => res.json())
+            .then(data => {
+              setPapers(data.papers);
+              setTotalPages(data.total_pages);
+              setResultsCount(data.results_count);
+              setIsLoading(false);
+            })
+            .catch(err => {
+              console.error("Failed to fetch papers:", err);
+              setIsLoading(false);
+            });
+        }, 10); // 10ms delay
+
+        return () => clearTimeout(timer); // Cleanup timer
+
+      }, [filters, currentPage]); // Re-run this effect when filters or page change
+
+
+      // --- Reset page to 0 when filters change ---
+      // We listen to a stringified version of the filters, *except* for search,
+      // which is handled by its debouncer.
+      const filtersForPageReset = { ...filters };
+      delete filtersForPageReset.search; // Search doesn't reset page
+
+      useEffect(() => {
+        setCurrentPage(0);
+      }, [JSON.stringify(filtersForPageReset), filters.search]); // Reset page if filters change
+
+
+
+
+      // Handle page change
+      const handlePageChange = (newPage) => {
+        if (newPage >= 0 && newPage < totalPages) {
+          setCurrentPage(newPage);
+          // Scroll to top when page changes
+          window.scrollTo(0, 0);
+        }
+      };
+
+
+      return (
+        <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+          {/* Sidebar */}
+          <FilterSidebar
+            filters={filters}
+            setFilters={setFilters}
+            allCategories={allCategories}
+            resultsCount={resultsCount}
+          />
+
+          {/* Main Content */}
+          <main className="flex-1 p-5 md:p-8 min-w-0">
+            {/* We show pagination controls even if loading */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+
+            {isLoading && (
+              <div className="flex justify-center items-center h-64">
+                <p className="text-lg text-gray-500">Loading papers...</p>
+              </div>
+            )}
+
+            {!isLoading && papers.length > 0 ? (
+              <>
+                {/* Paper List */}
+                <div className="grid grid-cols-1 gap-6 mt-6">
+                  {papers.map(paper => (
+                    <PaperCard key={paper.id} paper={paper} />
+                  ))}
+                </div>
+
+                {/* Bottom Pagination Controls */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </>
+            ) : null}
+
+            {!isLoading && papers.length === 0 && (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center p-12 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                  <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">No Results Found</h3>
+                  <p className="mt-2 text-gray-500 dark:text-gray-400">
+                    Try clearing some filters or broadening your search.
+                  </p>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    // 6. Get the root element and render the App
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<App />);
+
+
+  </script>
+
+
+</body>
+
+</html>

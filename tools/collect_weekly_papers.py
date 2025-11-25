@@ -1,11 +1,13 @@
+print("Debug: Script is starting...")
+
 import os
 import sqlite3
 from datetime import datetime
-
 import requests
 
-DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
+print("DEBUG: Imports successful...")
 
+DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 
 def get_huggingface_papers():
     """
@@ -97,16 +99,49 @@ def add_paper_to_db(conn, paper):
 
 
 def main():
-    print("🔍 Collecting papers from HuggingFace Daily Papers...\n")
+    print("=" * 60, flush=True)
+    print("🔍 STARTING: Collecting papers from HuggingFace...", flush=True)
+    print("=" * 60, flush=True)
 
     papers = get_huggingface_papers()
+    
+    print(f"DEBUG: Received {len(papers)} papers", flush=True)
+    
     if not papers:
-        print("No papers found. Exiting.")
+        print("❌ No papers found. Exiting.", flush=True)
         return
 
     conn = sqlite3.connect(DB_PATH)
+    
+    # Ensure table exists
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS papers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            arxiv_id TEXT UNIQUE,
+            title TEXT,
+            authors TEXT,
+            date TEXT,
+            abstract TEXT,
+            arxiv_link TEXT,
+            reasoning_category TEXT,
+            keywords TEXT,
+            notes TEXT,
+            summary_md TEXT,
+            tldr TEXT,
+            excitement_score INTEGER,
+            raw_excitement_score INTEGER,
+            excitement_reasoning TEXT,
+            score_breakdown TEXT,
+            last_scored_at TEXT,
+            model_used TEXT,
+            summary_tokens INTEGER,
+            last_summarized_at TEXT,
+            date_added TEXT
+        )
+    """)
+    conn.commit()
 
-    # Ensure date_added column exists (handle older SQLite versions gracefully)
+    # Ensure date_added column exists
     try:
         conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS date_added TEXT")
         conn.commit()
@@ -123,21 +158,26 @@ def main():
     for paper in papers:
         if paper_exists(conn, paper["arxiv_id"]):
             skipped_count += 1
+            print(f"⏭  Skipped duplicate: {paper['title'][:40]}...", flush=True)
             continue
 
         if add_paper_to_db(conn, paper):
             new_count += 1
-            print(f"✓ Added: {paper['title'][:60]}...")
+            print(f"✓ Added: {paper['title'][:60]}...", flush=True)
 
     conn.close()
 
-    print(f"\n{'=' * 60}")
-    print("✅ Collection complete!")
-    print(f"   New papers added: {new_count}")
-    print(f"   Duplicates skipped: {skipped_count}")
-    print("\nNext: Run 'python tools/summarize_papers.py' to process new papers.")
-    print(f"{'=' * 60}")
+    print(f"\n{'=' * 60}", flush=True)
+    print("✅ Collection complete!", flush=True)
+    print(f"   New papers added: {new_count}", flush=True)
+    print(f"   Duplicates skipped: {skipped_count}", flush=True)
+    print("\nNext: Run 'python tools/summarize_papers.py' to process new papers.", flush=True)
+    print(f"{'=' * 60}", flush=True)
 
 
 if __name__ == "__main__":
+    print("DEBUG: Script starting...", flush=True)
     main()
+    print("DEBUG: Script finished.", flush=True)
+
+

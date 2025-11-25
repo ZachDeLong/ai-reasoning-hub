@@ -3,3 +3,5 @@ requests
 tenacity
 openai
 google-generativeai
+Flask
+flask-cors

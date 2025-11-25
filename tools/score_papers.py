@@ -26,7 +26,7 @@ if SCORE_RESCALE_MODE not in {"global", "per_category"}:
     SCORE_RESCALE_MODE = "global"
 
 SCORING_PROMPT = """
-You are evaluating the excitement and potential impact of AI research papers.
+You are a critical reviewer evaluating AI research papers.
 
 Rate this paper on a scale of 1-10 based on:
 - Novelty (3 pts): How new/surprising is the approach or finding?
@@ -43,6 +43,17 @@ Output ONLY a JSON object in this exact format:
   "results": <integer 1-2>,
   "accessibility": <integer 0-1>
 }}
+
+**NEGATIVE CONSTRAINTS (STRICTLY ENFORCED)**:
+- DO NOT start with "The paper introduces...", "This work presents...", or "___ proposes a novel...".
+- DO NOT use the phrase "novel approach" or "fresh perspective".
+- DO NOT start sentences with "By [verb]ing..." (e.g., "By leveraging...", "By introducing...").
+- **VARIETY REQUIRED**: Use diverse sentence structures. Mix it up.
+    - "This work achieves X..."
+    - "Using Y, the authors demonstrate..."
+    - "The key contribution is..."
+    - "Ideally, this would..."
+- Be direct. Start immediately with the critique or the specific value proposition.
 
 Calibrate distribution realistically:
 - 1–3 ≈ 40–50% (incremental or niche)
@@ -273,16 +284,20 @@ def main():
         try:
             resp = call_llm(prompt)  # call_llm() should already be low-temp for determinism
             data = parse_score_response(resp["text"])
+            # Enforce deterministic scoring: Sum of parts
+            # This overrides the LLM's hallucinated "score" field
+            calculated_score = data['novelty'] + data['impact'] + data['results'] + data['accessibility']
+            
             print(f"✓ {pid}: {row['title'][:60]}...")
-            print(f"   Raw Score: {data['score']}/10 | Breakdown: N{data['novelty']}/I{data['impact']}/R{data['results']}/A{data['accessibility']}")
+            print(f"   Score: {calculated_score}/10 (Calculated) | Breakdown: N{data['novelty']}/I{data['impact']}/R{data['results']}/A{data['accessibility']}")
             print(f"   Why: {data['reasoning'][:120]}...\n")
 
             scored_results.append({
                 "paper_id": pid,
                 "row": row,
                 "data": data,
-                "raw_score": data["score"],
-                "rescaled_score": data["score"],
+                "raw_score": calculated_score,
+                "rescaled_score": calculated_score,
                 "reasoning_category": row.get("reasoning_category"),
             })
 

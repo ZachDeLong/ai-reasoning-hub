@@ -9,36 +9,41 @@ DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 BATCH_LIMIT = int(os.getenv("SUMMARY_BATCH", "10"))
 
 PROMPT_TEMPLATE = """
-You are a research summarizer for ML practitioners, engineers, and students who understand AI/ML fundamentals.
+You are a **Critical Technical Reviewer** for an AI research lab. Your audience consists of ML engineers and researchers who want deep technical insights, not marketing fluff.
 
-Output only valid Markdown in this exact structure:
+**GOAL**: Deconstruct this paper into its core technical contributions.
 
-# TLDR
-<2-4 clear sentences capturing the main contribution and key finding. Be specific and concrete. ~50-80 words>
+**NEGATIVE CONSTRAINTS (STRICTLY ENFORCED)**:
+- NO generic praise ("promising results", "novel approach", "state-of-the-art").
+- NO vague summaries ("The authors propose a method to improve...").
+- NO marketing speak ("revolutionizes", "game-changer").
+- If a bullet point does not contain a specific number, metric, or concrete architectural detail, DELETE IT.
+
+**OUTPUT FORMAT (Markdown)**:
+
+# The Big Idea
+<1 punchy sentence that captures the "aha!" moment. What is the core innovation?>
+
+# Insight
+<2-3 sentences explaining the *technical mechanism* that makes this work. How does it actually solve the problem? Be specific about architecture/loss/data.>
 
 ## Problem
-<One bullet: what gap or question does this address?>
+<1 bullet: What specific limitation or gap is being addressed?>
 
 ## Method
-<2-3 bullets: the key ideas and approach, including scope/scale where relevant>
+<2-3 bullets: The technical approach. Mention specific architectures (e.g., Transformer, Mamba), algorithms (e.g., DPO, PPO), or data scales.>
 
-## Key Results
-<3-5 bullets: the most important findings - be specific with numbers and comparisons where available>
+## Results
+<3-5 bullets. EVERY bullet must cite a specific number, percentage, or comparison from the paper. Example: "Achieves 85.2% on GSM8K, surpassing Llama-2-70B (83.1%).">
 
 ## Limitations
-<1-3 bullets: scope constraints, caveats, or open questions - focus on what the paper explicitly acknowledges>
+<1-3 bullets: What does it *fail* to do? What are the constraints? (e.g., "Requires 8x H100s", "Fails on long-context >32k")>
 
 ## Why It Matters
-<2-3 bullets: practical implications or why researchers should care - be specific, not generic>
+<2-3 bullets: Practical implications for engineers. Can we use this? Does it change how we train models?>
 
 ## Notable Quotes
-<3 quotes from the abstract that capture key insights>
-
-Guidelines:
-- Be precise and concrete - include specific numbers, scales, and comparisons
-- Use technical terms naturally but explain complex concepts clearly
-- Focus on insights, not just descriptions
-- Don't oversell or add hype not present in the source
+<2-3 verbatim quotes from the paper that capture key insights or philosophy.>
 
 ---
 
@@ -130,14 +135,15 @@ def extract_tldr(markdown: str) -> str:
     lines = [l.strip() for l in markdown.splitlines()]
     for i, l in enumerate(lines):
         low = l.lower().replace(";", "")
-        if low.startswith("# tldr") or low.startswith("## tldr"):
+        # Look for the new header format
+        if "the big idea" in low or "tldr" in low:
             # next non-empty line is the TLDR
             for j in range(i + 1, min(i + 6, len(lines))):
-                if lines[j]:
+                if lines[j] and not lines[j].startswith("#"):
                     return lines[j]
-    # fallback: first non-empty line
+    # fallback: first non-empty line that isn't a header
     for l in lines:
-        if l:
+        if l and not l.startswith("#"):
             return l[:280]
     return ""
 
@@ -197,6 +203,9 @@ def main(argv=None):
             try:
                 resp = call_llm(prompt)
                 md = (resp["text"] or "").strip()
+                violations = [p for p in ["novel approach", "promising results", "significant improvement"] if p in md.lower()]
+                if violations:
+                    print(f"⚠️  Paper {row['id']} boilerplate: {violations}")
                 tldr = extract_tldr(md)
                 save_summary(conn, pid, md, tldr, resp.get("model"), resp.get("tokens"))
                 summarized_count += 1
@@ -214,7 +223,7 @@ def main(argv=None):
             print(f"   Pass rate: {pass_rate:.1f}%")
         print(f"   Triage tokens used: {total_triage_tokens}")
         if summarized_count > 0:
-            triage_cost = total_triage_tokens / 1_000_000 * 0.15  # gpt-4o-mini fallback
+            triage_cost = total_triage_tokens / 1_000_000 * 0.15  # gpt-4.1-mini fallback
             summary_cost = summarized_count * 0.04  # rough estimate
             total_cost = triage_cost + summary_cost
             print(f"   Estimated cost: ${total_cost:.2f}")
