@@ -8,7 +8,7 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app) # Allow frontend to fetch data
 
 DB_PATH = os.path.join("data", "papers.db")
-BREAKDOWN_MAX = {"Novelty": 3, "Impact": 4, "Results": 2, "Access": 1}
+BREAKDOWN_MAX = {"Novelty": 3, "Utility": 1, "Results": 2, "Access": 1}
 CARDS_PER_PAGE = 15
 
 # --- Database Logic (Adapted from your Streamlit app) ---
@@ -172,6 +172,14 @@ def proxy_pdf(arxiv_id):
 def serve_index():
     # This serves your `index.html` file as the main page
     response = send_from_directory('.', 'index.html')
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+@app.route('/about')
+def serve_about():
+    response = send_from_directory('.', 'about.html')
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"

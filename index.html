@@ -70,7 +70,7 @@
 
     // --- Constants ---
     const CARDS_PER_PAGE = 15;
-    const BREAKDOWN_MAX = { "Novelty": 3, "Impact": 4, "Results": 2, "Access": 1 };
+    const BREAKDOWN_MAX = { "Novelty": 3, "Utility": 1, "Results": 2, "Access": 1 };
 
     // --- Utils ---
 
@@ -79,14 +79,13 @@
      * Gets a Tailwind color class based on the score (ported from Python)
      */
     const getScoreColor = (s) => {
-      if (s >= 9) return "text-blue-500 border-blue-500"; // bright blue for unicorns
-      if (s >= 8) return "text-green-600 border-green-600";
-      if (s >= 7) return "text-green-500 border-green-500";
-      if (s >= 6) return "text-lime-500 border-lime-500";
-      if (s >= 5) return "text-yellow-500 border-yellow-500";
-      if (s >= 4) return "text-amber-500 border-amber-500";
-      if (s >= 3) return "text-orange-500 border-orange-500";
-      return "text-red-500 border-red-500";
+      if (s >= 7) return "text-blue-500 border-blue-500"; // Perfect
+      if (s >= 6) return "text-green-600 border-green-600"; // Excellent
+      if (s >= 5) return "text-green-500 border-green-500"; // Very Good
+      if (s >= 4) return "text-lime-500 border-lime-500"; // Good
+      if (s >= 3) return "text-yellow-500 border-yellow-500"; // Average
+      if (s >= 2) return "text-orange-500 border-orange-500"; // Below Average
+      return "text-red-500 border-red-500"; // Poor
     };
 
 
@@ -239,7 +238,7 @@
       return (
         <div className={`flex flex-col items-center justify-center w-24 h-24 rounded-full border-8 bg-white dark:bg-gray-800 flex-shrink-0 ${colorClasses}`}>
           <span className="text-3xl font-bold">{score}</span>
-          <span className="text-xs font-medium -mt-1">/ 10</span>
+          <span className="text-xs font-medium -mt-1">/ 7</span>
         </div>
       );
     };
@@ -250,7 +249,7 @@
      */
     const BreakdownVisual = ({ breakdownString }) => {
       const breakdown = parseBreakdown(breakdownString);
-      const labels = ["Novelty", "Impact", "Results", "Access"];
+      const labels = ["Novelty", "Utility", "Results", "Access"];
 
 
       return (
@@ -422,7 +421,10 @@
 
       return (
         <div className="w-full md:w-80 lg:w-96 flex-shrink-0 md:h-screen md:sticky top-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reasoning Hub</h2>
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reasoning Hub</h2>
+            <a href="/about" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">About</a>
+          </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-6">
             Showing {resultsCount} results
           </p>
@@ -483,13 +485,13 @@
             <div>
               <label htmlFor="minScore" className="flex justify-between text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                 <span>Min excitement score</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">{filters.minScore} / 10</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{filters.minScore} / 7</span>
               </label>
               <input
                 type="range"
                 id="minScore"
                 min="0"
-                max="10"
+                max="7"
                 step="1"
                 value={filters.minScore}
                 onChange={e => handleFilterChange('minScore', parseInt(e.target.value, 10))}

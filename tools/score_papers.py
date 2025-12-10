@@ -4,43 +4,39 @@ from llm_summary import call_llm
 
 DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 DEFAULT_BATCH = int(os.getenv("SCORE_BATCH", "10"))
-SCORE_RESCALE_ENABLED = os.getenv("SCORE_RESCALE", "0").strip().lower() in {"1", "true", "yes", "on"}
-SCORE_RESCALE_MODE = os.getenv("SCORE_RESCALE_MODE", "global").strip().lower()
-
-
-def _env_float(name: str, default: float) -> float:
-    val = os.getenv(name)
-    if val is None:
-        return float(default)
-    try:
-        return float(val)
-    except ValueError:
-        return float(default)
-
-
-SCORE_TARGET_MEAN = _env_float("SCORE_TARGET_MEAN", 6.2)
-SCORE_TARGET_STD = _env_float("SCORE_TARGET_STD", 1.6)
-if SCORE_TARGET_STD <= 0:
-    SCORE_TARGET_STD = 1.0
-if SCORE_RESCALE_MODE not in {"global", "per_category"}:
-    SCORE_RESCALE_MODE = "global"
 
 SCORING_PROMPT = """
 You are a critical reviewer evaluating AI research papers.
 
-Rate this paper on a scale of 1-10 based on:
-- Novelty (3 pts): How new/surprising is the approach or finding?
-- Impact (4 pts): Could this significantly change how people build or think about AI?
-- Results (2 pts): Are the improvements substantial and well-demonstrated?
-- Accessibility (1 pt): Can others easily build on or reproduce this work?
+Rate this paper on a scale of 0-7 based on the following criteria:
+
+1. Novelty (0-3 pts): Assess the distinctiveness of the contribution.
+    - 0 pts: Derivative application of existing methods; no new insight.
+    - 1 pt: Incremental improvement; standard gap-filling; applying X to Y.
+    - 2 pts: Significant methodological advancement or new architecture.
+    - 3 pts: Transformative; challenges core assumptions or introduces a new paradigm.
+
+2. Impact Analysis (0-4 pts): Assess the value and reliability of the contribution.
+    - Utility (0-1 pt): "Does this problem matter?"
+        - 0 pts: Solves a niche/toy problem with little real-world application.
+        - 1 pt: Addresses a widely recognized bottleneck or real-world use case.
+    
+    - Results (0-2 pts): "How strong is the proof?"
+        - 0 pts: Results are marginal, rely on weak baselines, or lack statistical significance.
+        - 1 pt: Competitive performance; clearly demonstrates the proposed method works as intended.
+        - 2 pts: Strong SOTA on major benchmarks OR significant efficiency gains.
+    
+    - Accessibility (0-1 pt): "Can we use it?"
+        - 0 pts: Theoretical only; no artifacts released.
+        - 1 pt: Links provided to open-source code, model weights, or a new high-quality dataset.
 
 Output ONLY a JSON object in this exact format:
 {{
-  "score": <integer 1-10>,
+  "score": <integer 0-7>,
   "reasoning": "<2-3 sentences explaining the score>",
-  "novelty": <integer 1-3>,
-  "impact": <integer 1-4>,
-  "results": <integer 1-2>,
+  "novelty": <integer 0-3>,
+  "utility": <integer 0-1>,
+  "results": <integer 0-2>,
   "accessibility": <integer 0-1>
 }}
 
@@ -56,11 +52,8 @@ Output ONLY a JSON object in this exact format:
 - Be direct. Start immediately with the critique or the specific value proposition.
 
 Calibrate distribution realistically:
-- 1–3 ≈ 40–50% (incremental or niche)
-- 4–6 ≈ 40–50% (solid but non-breakthrough)
-- 7–8 ≈ 5–10% (important contribution)
-- 9–10 ≈ <1% (breakthrough; use only with clear evidence)
-If uncertain, choose the lower score.
+- Most papers should fall in the 2-4 range (incremental/solid).
+- Scores > 5 should be rare (significant/transformative).
 
 ---
 Title: {title}
@@ -81,6 +74,8 @@ def ensure_columns(conn: sqlite3.Connection) -> None:
         to_add.append("ALTER TABLE papers ADD COLUMN raw_excitement_score INTEGER DEFAULT 0")
     if "excitement_score" not in columns:
         to_add.append("ALTER TABLE papers ADD COLUMN excitement_score INTEGER DEFAULT 0")
+    if "excitement_tier" not in columns:
+        to_add.append("ALTER TABLE papers ADD COLUMN excitement_tier TEXT")
     if "excitement_reasoning" not in columns:
         to_add.append("ALTER TABLE papers ADD COLUMN excitement_reasoning TEXT")
     if "score_breakdown" not in columns:
@@ -99,7 +94,7 @@ def ensure_columns(conn: sqlite3.Connection) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Score papers with an excitement metric (1–10).")
+    ap = argparse.ArgumentParser(description="Score papers with an excitement metric (Tier S-D).")
     ap.add_argument("--force", action="store_true",
                     help="Rescore even if a score already exists.")
     ap.add_argument("--limit", type=int, default=DEFAULT_BATCH,
@@ -175,13 +170,13 @@ def parse_score_response(text: str) -> dict:
 
     # Validate ranges & fields
     def in_range(v, lo, hi): return isinstance(v, int) and lo <= v <= hi
-    if not in_range(data.get("score"), 1, 10):
+    if not in_range(data.get("score"), 0, 7):
         raise ValueError(f"score out of range: {data.get('score')}")
-    if not in_range(data.get("novelty"), 1, 3):
+    if not in_range(data.get("novelty"), 0, 3):
         raise ValueError(f"novelty out of range: {data.get('novelty')}")
-    if not in_range(data.get("impact"), 1, 4):
-        raise ValueError(f"impact out of range: {data.get('impact')}")
-    if not in_range(data.get("results"), 1, 2):
+    if not in_range(data.get("utility"), 0, 1):
+        raise ValueError(f"utility out of range: {data.get('utility')}")
+    if not in_range(data.get("results"), 0, 2):
         raise ValueError(f"results out of range: {data.get('results')}")
     if not in_range(data.get("accessibility"), 0, 1):
         raise ValueError(f"accessibility out of range: {data.get('accessibility')}")
@@ -190,73 +185,40 @@ def parse_score_response(text: str) -> dict:
     return data
 
 
-def _category_key(value):
-    if value is None:
-        return None
-    value = value.strip()
-    return value or None
+def calculate_tier(score: int) -> str:
+    """
+    Maps the 0-7 score to a Tier.
+    S-tier (7): Groundbreaking contributions
+    A-tier (5-6): Strong, significant work
+    B-tier (4): Solid but limited impact
+    C-tier (2-3): Methodologically sound but narrow
+    D-tier (<=1): Flawed or inconclusive
+    """
+    if score >= 7:
+        return "S"
+    elif score >= 5:
+        return "A"
+    elif score == 4:
+        return "B"
+    elif score >= 2:
+        return "C"
+    else:
+        return "D"
 
 
-def _mean_std(values):
-    mean = sum(values) / len(values)
-    if len(values) == 1:
-        return mean, 1.0
-    variance = sum((v - mean) ** 2 for v in values) / len(values)
-    std = math.sqrt(variance)
-    if std < 1e-6:
-        std = 1.0
-    return mean, std
-
-
-def apply_rescaling(batch_results):
-    if not batch_results:
-        return
-
-    if not SCORE_RESCALE_ENABLED:
-        for item in batch_results:
-            item["rescaled_score"] = item["raw_score"]
-        return
-
-    raw_scores = [item["raw_score"] for item in batch_results]
-    global_stats = _mean_std(raw_scores)
-
-    category_stats = {}
-    if SCORE_RESCALE_MODE == "per_category":
-        category_scores = {}
-        for item in batch_results:
-            key = _category_key(item.get("reasoning_category"))
-            category_scores.setdefault(key, []).append(item["raw_score"])
-        category_stats = {
-            key: _mean_std(vals)
-            for key, vals in category_scores.items()
-            if len(vals) >= 3
-        }
-
-    for item in batch_results:
-        stats = global_stats
-        if SCORE_RESCALE_MODE == "per_category":
-            key = _category_key(item.get("reasoning_category"))
-            if key in category_stats:
-                stats = category_stats[key]
-        mean, std = stats
-        z = 0.0 if std < 1e-6 else (item["raw_score"] - mean) / std
-        scaled = SCORE_TARGET_MEAN + z * SCORE_TARGET_STD
-        clamped = min(10, max(1, scaled))
-        item["rescaled_score"] = int(round(clamped))
-
-
-def save_score(conn: sqlite3.Connection, pid: int, score: dict, raw_score: int, final_score: int) -> None:
+def save_score(conn: sqlite3.Connection, pid: int, score: dict, raw_score: int, tier: str) -> None:
     now = datetime.datetime.utcnow().isoformat()
-    breakdown = f"Novelty:{score['novelty']}, Impact:{score['impact']}, Results:{score['results']}, Access:{score['accessibility']}"
+    breakdown = f"Novelty:{score['novelty']}, Utility:{score['utility']}, Results:{score['results']}, Access:{score['accessibility']}"
     conn.execute("""
         UPDATE papers
         SET raw_excitement_score = ?,
             excitement_score = ?,
+            excitement_tier = ?,
             excitement_reasoning = ?,
             score_breakdown = ?,
             last_scored_at = ?
         WHERE id = ?
-    """, (raw_score, final_score, score["reasoning"], breakdown, now, pid))
+    """, (raw_score, raw_score, tier, score["reasoning"], breakdown, now, pid))
     conn.commit()
 
 
@@ -277,40 +239,25 @@ def main():
 
     print(f"Scoring {len(rows)} paper(s){' with --force' if args.force else ''}...\n")
 
-    scored_results = []
     for i, row in enumerate(rows, 1):
         pid = row["id"]
         prompt = build_prompt(row)
         try:
             resp = call_llm(prompt)  # call_llm() should already be low-temp for determinism
             data = parse_score_response(resp["text"])
+            
             # Enforce deterministic scoring: Sum of parts
-            # This overrides the LLM's hallucinated "score" field
-            calculated_score = data['novelty'] + data['impact'] + data['results'] + data['accessibility']
+            calculated_score = data['novelty'] + data['utility'] + data['results'] + data['accessibility']
+            tier = calculate_tier(calculated_score)
             
             print(f"✓ {pid}: {row['title'][:60]}...")
-            print(f"   Score: {calculated_score}/10 (Calculated) | Breakdown: N{data['novelty']}/I{data['impact']}/R{data['results']}/A{data['accessibility']}")
+            print(f"   Score: {calculated_score}/7 -> Tier {tier} | Breakdown: N{data['novelty']}/U{data['utility']}/R{data['results']}/A{data['accessibility']}")
             print(f"   Why: {data['reasoning'][:120]}...\n")
 
-            scored_results.append({
-                "paper_id": pid,
-                "row": row,
-                "data": data,
-                "raw_score": calculated_score,
-                "rescaled_score": calculated_score,
-                "reasoning_category": row.get("reasoning_category"),
-            })
+            save_score(conn, pid, data, calculated_score, tier)
 
         except Exception as e:
             print(f"× {pid}: {type(e).__name__}: {e}\n")
-
-    apply_rescaling(scored_results)
-
-    for item in scored_results:
-        raw_score = item["raw_score"]
-        final_score = item["rescaled_score"]
-        save_score(conn, item["paper_id"], item["data"], raw_score, final_score)
-        print(f"   Rescale [{item['paper_id']}]: raw = {raw_score} → rescaled = {final_score}\n")
 
     conn.close()
 
