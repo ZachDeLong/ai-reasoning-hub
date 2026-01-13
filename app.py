@@ -207,6 +207,25 @@ def get_papers():
     )
     return jsonify(data)
 
+@app.route('/api/papers/stats')
+@limiter.limit("30 per minute")
+def get_papers_stats():
+    """Fetch all papers for stats/trends (lightweight, no pagination)."""
+    with get_db_connection() as conn:
+        rows = conn.execute("""
+            SELECT
+                id, title, authors, date,
+                COALESCE(reasoning_category, '') AS reasoning_category,
+                arxiv_link,
+                COALESCE(excitement_score, 0) AS excitement_score,
+                COALESCE(score_breakdown, '') AS score_breakdown
+            FROM papers
+            WHERE summary_md IS NOT NULL AND summary_md != ''
+            ORDER BY excitement_score DESC
+            LIMIT 500
+        """).fetchall()
+        return jsonify({"papers": [dict(r) for r in rows]})
+
 @app.route('/api/export/csv')
 @limiter.limit("20 per hour")
 def export_csv():

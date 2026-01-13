@@ -6,62 +6,51 @@ DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 DEFAULT_BATCH = int(os.getenv("SCORE_BATCH", "10"))
 
 SCORING_PROMPT = """
-You are a critical reviewer evaluating AI research papers.
+Score this AI research paper on a 0-7 scale.
 
-Rate this paper on a scale of 0-7 based on the following criteria:
+**SCORING RUBRIC** (total = sum of all):
 
-1. Novelty (0-3 pts): Assess the distinctiveness of the contribution.
-    - 0 pts: Derivative application of existing methods; no new insight.
-    - 1 pt: Incremental improvement; standard gap-filling; applying X to Y.
-    - 2 pts: Significant methodological advancement or new architecture.
-    - 3 pts: Transformative; challenges core assumptions or introduces a new paradigm.
+NOVELTY (0-3):
+- 0: Rehash of existing work
+- 1: Incremental improvement or standard application
+- 2: New method or meaningful architectural change
+- 3: Paradigm shift or fundamentally new approach
 
-2. Impact Analysis (0-4 pts): Assess the value and reliability of the contribution.
-    - Utility (0-1 pt): "Does this problem matter?"
-        - 0 pts: Solves a niche/toy problem with little real-world application.
-        - 1 pt: Addresses a widely recognized bottleneck or real-world use case.
-    
-    - Results (0-2 pts): "How strong is the proof?"
-        - 0 pts: Results are marginal, rely on weak baselines, or lack statistical significance.
-        - 1 pt: Competitive performance; clearly demonstrates the proposed method works as intended.
-        - 2 pts: Strong SOTA on major benchmarks OR significant efficiency gains.
-    
-    - Accessibility (0-1 pt): "Can we use it?"
-        - 0 pts: Theoretical only; no artifacts released.
-        - 1 pt: Links provided to open-source code, model weights, or a new high-quality dataset.
+UTILITY (0-1):
+- 0: Toy problem or narrow niche
+- 1: Real bottleneck or practical use case
 
-Output ONLY a JSON object in this exact format:
+RESULTS (0-2):
+- 0: Weak baselines or marginal gains
+- 1: Solid results, method works as claimed
+- 2: SOTA on major benchmarks or big efficiency win
+
+ACCESS (0-1):
+- 0: No code/models/data released
+- 1: Open artifacts available
+
+**OUTPUT**: JSON only, no other text.
 {{
-  "score": <integer 0-7>,
-  "reasoning": "<2-3 sentences explaining the score>",
-  "novelty": <integer 0-3>,
-  "utility": <integer 0-1>,
-  "results": <integer 0-2>,
-  "accessibility": <integer 0-1>
+  "novelty": <0-3>,
+  "utility": <0-1>,
+  "results": <0-2>,
+  "access": <0-1>,
+  "reasoning": "<2 sentences: what's good and what's lacking>"
 }}
 
-**NEGATIVE CONSTRAINTS (STRICTLY ENFORCED)**:
-- DO NOT start with "The paper introduces...", "This work presents...", or "___ proposes a novel...".
-- DO NOT use the phrase "novel approach" or "fresh perspective".
-- DO NOT start sentences with "By [verb]ing..." (e.g., "By leveraging...", "By introducing...").
-- **VARIETY REQUIRED**: Use diverse sentence structures. Mix it up.
-    - "This work achieves X..."
-    - "Using Y, the authors demonstrate..."
-    - "The key contribution is..."
-    - "Ideally, this would..."
-- Be direct. Start immediately with the critique or the specific value proposition.
+**REASONING RULES**:
+- Start with the key strength or weakness, not "This paper..."
+- Be specific: cite benchmarks, methods, or gaps
+- No fluff words: "novel", "promising", "interesting"
 
-Calibrate distribution realistically:
-- Most papers should fall in the 2-4 range (incremental/solid).
-- Scores > 5 should be rare (significant/transformative).
+**CALIBRATION**: Most papers = 2-4. Score 5+ is rare (real breakthrough).
 
 ---
 Title: {title}
 
-TLDR:
-{tldr}
+TLDR: {tldr}
 
-Full Summary (truncated):
+Summary:
 {summary_md}
 """.strip()
 
@@ -168,18 +157,20 @@ def parse_score_response(text: str) -> dict:
             raise ValueError("No JSON object found in response")
         data = json.loads(m.group(0))
 
+    # Normalize field name (support both old and new)
+    if "accessibility" in data and "access" not in data:
+        data["access"] = data["accessibility"]
+
     # Validate ranges & fields
     def in_range(v, lo, hi): return isinstance(v, int) and lo <= v <= hi
-    if not in_range(data.get("score"), 0, 7):
-        raise ValueError(f"score out of range: {data.get('score')}")
     if not in_range(data.get("novelty"), 0, 3):
         raise ValueError(f"novelty out of range: {data.get('novelty')}")
     if not in_range(data.get("utility"), 0, 1):
         raise ValueError(f"utility out of range: {data.get('utility')}")
     if not in_range(data.get("results"), 0, 2):
         raise ValueError(f"results out of range: {data.get('results')}")
-    if not in_range(data.get("accessibility"), 0, 1):
-        raise ValueError(f"accessibility out of range: {data.get('accessibility')}")
+    if not in_range(data.get("access"), 0, 1):
+        raise ValueError(f"access out of range: {data.get('access')}")
     if not isinstance(data.get("reasoning"), str) or len(data["reasoning"].strip()) < 8:
         raise ValueError("missing/short reasoning")
     return data
@@ -208,7 +199,7 @@ def calculate_tier(score: int) -> str:
 
 def save_score(conn: sqlite3.Connection, pid: int, score: dict, raw_score: int, tier: str) -> None:
     now = datetime.datetime.utcnow().isoformat()
-    breakdown = f"Novelty:{score['novelty']}, Utility:{score['utility']}, Results:{score['results']}, Access:{score['accessibility']}"
+    breakdown = f"Novelty:{score['novelty']}, Utility:{score['utility']}, Results:{score['results']}, Access:{score['access']}"
     conn.execute("""
         UPDATE papers
         SET raw_excitement_score = ?,
@@ -247,11 +238,11 @@ def main():
             data = parse_score_response(resp["text"])
             
             # Enforce deterministic scoring: Sum of parts
-            calculated_score = data['novelty'] + data['utility'] + data['results'] + data['accessibility']
+            calculated_score = data['novelty'] + data['utility'] + data['results'] + data['access']
             tier = calculate_tier(calculated_score)
-            
+
             print(f"✓ {pid}: {row['title'][:60]}...")
-            print(f"   Score: {calculated_score}/7 -> Tier {tier} | Breakdown: N{data['novelty']}/U{data['utility']}/R{data['results']}/A{data['accessibility']}")
+            print(f"   Score: {calculated_score}/7 -> Tier {tier} | N:{data['novelty']} U:{data['utility']} R:{data['results']} A:{data['access']}")
             print(f"   Why: {data['reasoning'][:120]}...\n")
 
             save_score(conn, pid, data, calculated_score, tier)

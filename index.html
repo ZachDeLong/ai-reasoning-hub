@@ -7,6 +7,11 @@
   <title>Reasoning Hub</title>
   <!-- 1. Load Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
   <!-- 2. Load React libraries -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -16,45 +21,69 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- 5. Load DOMPurify to sanitize HTML and prevent XSS -->
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
-
+  <!-- 6. Load Chart.js for visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    /* Basic font setup */
+    /* Editorial Theme with Earthy Tones */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');
+
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #FAF7F2; /* warm cream */
     }
 
-    /* Add a dark mode class to the html tag if the user prefers it */
     .dark body {
-      background-color: #111827;
-      /* gray-900 */
+      background-color: #1C1917; /* stone-900 */
     }
 
-    /* Simple scrollbar styling for Chrome/Safari */
+    .font-serif {
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+
+    /* Warm scrollbar */
     ::-webkit-scrollbar {
       width: 10px;
       height: 10px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #9ca3af;
-      /* gray-400 */
-      border-radius: 10px;
+      background: #D6CFC4;
+      border-radius: 5px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: #6b7280;
-      /* gray-500 */
+      background: #A8A29E;
     }
 
     ::-webkit-scrollbar-track {
-      background: #f3f4f6;
-      /* gray-100 */
+      background: #FAF7F2;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+      background: #57534E;
+    }
+
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #78716C;
     }
 
     .dark ::-webkit-scrollbar-track {
-      background: #1f2937;
-      /* gray-800 */
+      background: #1C1917;
+    }
+
+    /* Mobile drawer animation */
+    @keyframes slideIn {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(0); }
+    }
+    .animate-slide-in {
+      animation: slideIn 0.2s ease-out;
+    }
+
+    /* Safe area for notched phones */
+    .safe-area-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
     }
   </style>
 </head>
@@ -73,21 +102,27 @@
     // --- Constants ---
     const CARDS_PER_PAGE = 15;
     const BREAKDOWN_MAX = { "Novelty": 3, "Utility": 1, "Results": 2, "Access": 1 };
+    const NAV_ITEMS = [
+      { id: 'papers', label: 'Papers' },
+      { id: 'trends', label: 'Trends' },
+      { id: 'lists', label: 'Reading Lists' },
+      { id: 'settings', label: 'Settings' },
+    ];
 
     // --- Utils ---
 
 
     /**
-     * Gets a Tailwind color class based on the score (ported from Python)
+     * Gets earthy color class based on the score
      */
     const getScoreColor = (s) => {
-      if (s >= 7) return "text-blue-500 border-blue-500"; // Perfect
-      if (s >= 6) return "text-green-600 border-green-600"; // Excellent
-      if (s >= 5) return "text-green-500 border-green-500"; // Very Good
-      if (s >= 4) return "text-lime-500 border-lime-500"; // Good
-      if (s >= 3) return "text-yellow-500 border-yellow-500"; // Average
-      if (s >= 2) return "text-orange-500 border-orange-500"; // Below Average
-      return "text-red-500 border-red-500"; // Poor
+      if (s >= 7) return "text-teal-700 dark:text-teal-400";      // Excellent - forest teal
+      if (s >= 6) return "text-emerald-700 dark:text-emerald-400"; // Great - sage
+      if (s >= 5) return "text-green-700 dark:text-green-400";     // Good - olive
+      if (s >= 4) return "text-amber-700 dark:text-amber-400";     // Above avg - gold
+      if (s >= 3) return "text-orange-700 dark:text-orange-400";   // Average - terracotta
+      if (s >= 2) return "text-rose-700 dark:text-rose-400";       // Below avg - dusty rose
+      return "text-stone-400 dark:text-stone-500";                  // Poor/NA
     };
 
 
@@ -192,23 +227,21 @@
 
 
     /**
-     * An expandable section for summary and PDF
+     * Editorial expandable section
      */
     const ExpandableSection = ({ title, children, startOpen = false }) => {
       const [isOpen, setIsOpen] = useState(startOpen);
 
-
       return (
-        <div className="border-t border-gray-200 dark:border-gray-700">
+        <div>
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="flex w-full items-center justify-between py-3 text-left font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+            className="text-xs font-medium text-amber-800 dark:text-amber-500 hover:text-amber-900 dark:hover:text-amber-400 transition-colors underline underline-offset-2 decoration-amber-800/30 dark:decoration-amber-500/30"
           >
-            <span>{title}</span>
-            {isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+            {isOpen ? `Hide ${title}` : `Read ${title}`}
           </button>
           {isOpen && (
-            <div className="pb-4 prose prose-sm dark:prose-invert max-w-none">
+            <div className="mt-3 p-4 bg-stone-100 dark:bg-stone-800/50 rounded-lg prose prose-stone dark:prose-invert prose-sm max-w-none">
               {typeof children === 'string' ? (
                 <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(children)) }} />
               ) : (
@@ -247,36 +280,74 @@
 
 
     /**
-     * The new visual score breakdown
+     * Compact score breakdown chips
      */
-    const BreakdownVisual = ({ breakdownString }) => {
+    const ScoreBreakdownChips = ({ breakdownString, compact = false }) => {
       const breakdown = parseBreakdown(breakdownString);
-      const labels = ["Novelty", "Utility", "Results", "Access"];
+      // Handle both old ("Impact") and new ("Utility") field names
+      if (breakdown["Impact"] !== undefined && breakdown["Utility"] === undefined) {
+        breakdown["Utility"] = breakdown["Impact"];
+      }
+      const items = [
+        { key: "Novelty", label: "N", max: 3, color: "teal" },
+        { key: "Utility", label: "U", max: 1, color: "amber" },
+        { key: "Results", label: "R", max: 2, color: "emerald" },
+        { key: "Access", label: "A", max: 1, color: "blue" }
+      ];
 
+      const getColorClasses = (color, filled) => {
+        if (!filled) return "bg-stone-200 dark:bg-stone-700 text-stone-400 dark:text-stone-500";
+        const colors = {
+          teal: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400",
+          amber: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400",
+          emerald: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400",
+          blue: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400"
+        };
+        return colors[color] || colors.teal;
+      };
 
+      if (compact) {
+        // Single line: N2 U1 R2 A1
+        return (
+          <div className="flex items-center gap-1.5">
+            {items.map(({ key, label, max, color }) => {
+              const score = breakdown[key] || 0;
+              const filled = score > 0;
+              return (
+                <span
+                  key={key}
+                  className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${getColorClasses(color, filled)}`}
+                  title={`${key}: ${score}/${max}`}
+                >
+                  {label}{score}
+                </span>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // Full breakdown with dots
       return (
-        <div className="space-y-2">
-          {labels.map(label => {
-            const score = breakdown[label] || 0;
-            const max = BREAKDOWN_MAX[label] || 0;
-            if (max === 0) return null;
-
-
+        <div className="space-y-1.5">
+          {items.map(({ key, label, max, color }) => {
+            const score = breakdown[key] || 0;
             return (
-              <div key={label}>
-                <div className="flex justify-between items-center mb-0.5">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</span>
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{score}/{max}</span>
-                </div>
-                <div className="flex space-x-1">
+              <div key={key} className="flex items-center gap-2">
+                <span className="text-[10px] font-medium text-stone-500 dark:text-stone-400 w-12">{key}</span>
+                <div className="flex gap-0.5">
                   {Array.from({ length: max }).map((_, i) => (
                     <div
                       key={i}
-                      className={`h-2 flex-1 rounded-sm ${i < score ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-600'
-                        }`}
+                      className={`w-3 h-3 rounded-full ${
+                        i < score
+                          ? getColorClasses(color, true).replace('text-', 'border-').split(' ')[0]
+                          : 'bg-stone-200 dark:bg-stone-700'
+                      }`}
                     />
                   ))}
                 </div>
+                <span className="text-[10px] font-semibold text-stone-600 dark:text-stone-300">{score}/{max}</span>
               </div>
             );
           })}
@@ -284,9 +355,12 @@
       );
     };
 
+    // Legacy alias
+    const BreakdownVisual = ScoreBreakdownChips;
+
 
     /**
-     * Reading list dropdown component
+     * Editorial reading list dropdown
      */
     const ReadingListDropdown = ({ currentList, listNames, onSelectList }) => {
       const [isOpen, setIsOpen] = useState(false);
@@ -295,22 +369,18 @@
         <div className="relative">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+            className={`px-2 py-1 text-xs rounded transition-colors ${
               currentList
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
+                : 'text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-            </svg>
-            {currentList || 'Add to list'}
+            {currentList || '+ List'}
           </button>
           {isOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-              <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
+              <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-xl z-20 py-1 overflow-hidden">
                 {listNames.map(name => (
                   <button
                     key={name}
@@ -318,26 +388,23 @@
                       onSelectList(name === currentList ? null : name);
                       setIsOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg ${
-                      name === currentList ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-stone-50 dark:hover:bg-stone-700 ${
+                      name === currentList ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400' : 'text-stone-700 dark:text-stone-300'
                     }`}
                   >
                     {name}
                   </button>
                 ))}
                 {currentList && (
-                  <>
-                    <div className="border-t border-gray-200 dark:border-gray-700" />
-                    <button
-                      onClick={() => {
-                        onSelectList(null);
-                        setIsOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg"
-                    >
-                      Remove from list
-                    </button>
-                  </>
+                  <button
+                    onClick={() => {
+                      onSelectList(null);
+                      setIsOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-700 border-t border-stone-200 dark:border-stone-700"
+                  >
+                    Remove
+                  </button>
                 )}
               </div>
             </>
@@ -376,29 +443,122 @@
     );
 
     /**
-     * The main component for displaying a single paper card
+     * Editorial paper card - magazine style
      */
     const PaperCard = ({ paper, isBookmarked, onToggleBookmark, currentList, listNames, onSelectList }) => {
-      const [showPdf, setShowPdf] = useState(false);
-
       const score = paper.excitement_score || 0;
-      const assessment = (paper.excitement_reasoning || "").trim();
-
 
       return (
-        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200 dark:border-gray-700">
-          <div className="p-5 flex flex-col md:flex-row gap-5">
+        <article className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 overflow-hidden hover:border-stone-300 dark:hover:border-stone-700 transition-colors">
+          {/* Header with score badge */}
+          <div className="p-4 pb-3">
+            {/* Top row: Category & Score */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {paper.reasoning_category && (
+                  <span className="text-xs font-medium uppercase tracking-wider text-amber-800 dark:text-amber-500">
+                    {paper.reasoning_category}
+                  </span>
+                )}
+                <span className="text-xs text-stone-400 dark:text-stone-500">
+                  {paper.date}
+                </span>
+              </div>
+              {score > 0 && (
+                <div className={`flex items-center gap-1 ${getScoreColor(score)}`}>
+                  <span className="text-base font-bold">{score}</span>
+                  <span className="text-xs text-stone-400">/7</span>
+                </div>
+              )}
+            </div>
 
-            {/* Left Column: Score, Breakdown & Bookmark */}
-            <div className="flex flex-col items-center md:w-32 flex-shrink-0 space-y-4">
-              <ScoreDonut score={score} />
-              {score > 0 && <BreakdownVisual breakdownString={paper.score_breakdown} />}
+            {/* Title - serif font for editorial feel */}
+            <h2 className="mb-1">
+              <a
+                href={paper.arxiv_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-serif text-lg font-semibold text-stone-900 dark:text-stone-100 hover:text-amber-800 dark:hover:text-amber-400 transition-colors leading-snug"
+              >
+                {paper.title}
+              </a>
+            </h2>
+
+            {/* Authors */}
+            <p className="text-sm text-stone-500 dark:text-stone-400 mb-2" title={paper.authors}>
+              {paper.authors}
+            </p>
+
+            {/* TLDR as pull quote */}
+            {paper.tldr && (
+              <blockquote className="pl-3 border-l-2 border-amber-400 dark:border-amber-600 text-sm text-stone-600 dark:text-stone-300 italic leading-relaxed">
+                {paper.tldr}
+              </blockquote>
+            )}
+          </div>
+
+          {/* Footer with actions */}
+          <div className="px-4 py-2.5 bg-stone-50 dark:bg-stone-800/50 border-t border-stone-100 dark:border-stone-800">
+            <div className="flex items-center justify-between">
+              {/* Left: Read more actions */}
+              <div className="flex items-center gap-4">
+                {paper.summary_md && (
+                  <ExpandableSection title="Summary">
+                    {paper.summary_md}
+                    {paper.excitement_reasoning && (
+                      <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700">
+                        <p className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-2">Assessment</p>
+                        <p className="text-stone-600 dark:text-stone-400">{paper.excitement_reasoning}</p>
+                        {paper.score_breakdown && (
+                          <p className="text-xs text-stone-500 mt-3 font-medium">{paper.score_breakdown}</p>
+                        )}
+                      </div>
+                    )}
+                  </ExpandableSection>
+                )}
+                {paper.arxiv_id && (
+                  <ExpandableSection title="PDF">
+                    <iframe
+                      src={`/api/pdf/${paper.arxiv_id}`}
+                      width="100%"
+                      height="600"
+                      className="border border-stone-200 dark:border-stone-700 rounded-lg"
+                      title={`${paper.title} PDF`}
+                    />
+                  </ExpandableSection>
+                )}
+                {paper.arxiv_id && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const resp = await fetch(`/api/bibtex/${paper.arxiv_id}`);
+                        const bibtex = await resp.text();
+                        await navigator.clipboard.writeText(bibtex);
+                      } catch (e) {
+                        console.error('Failed to copy BibTeX:', e);
+                      }
+                    }}
+                    className="text-sm text-stone-500 dark:text-stone-400 hover:text-amber-800 dark:hover:text-amber-400 transition-colors"
+                  >
+                    Cite
+                  </button>
+                )}
+              </div>
+
+              {/* Right: User actions */}
               {paper.arxiv_id && (
-                <div className="flex flex-col items-center gap-2">
-                  <BookmarkStar
-                    isBookmarked={isBookmarked}
+                <div className="flex items-center gap-3">
+                  <button
                     onClick={() => onToggleBookmark(paper.arxiv_id)}
-                  />
+                    className={`text-lg transition-colors ${
+                      isBookmarked
+                        ? 'text-amber-500 hover:text-amber-600'
+                        : 'text-stone-400 hover:text-amber-500'
+                    }`}
+                    title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+                  >
+                    {isBookmarked ? 'Saved' : 'Save'}
+                  </button>
                   <ReadingListDropdown
                     currentList={currentList}
                     listNames={listNames}
@@ -407,387 +567,1145 @@
                 </div>
               )}
             </div>
+          </div>
+        </article>
+      );
+    };
 
-            {/* Right Column: Content */}
+
+    /**
+     * Compact paper row for list view - click to expand
+     */
+    const CompactPaperRow = ({ paper, isBookmarked, onToggleBookmark, currentList, listNames, onSelectList }) => {
+      const [isExpanded, setIsExpanded] = useState(false);
+      const score = paper.excitement_score || 0;
+
+      return (
+        <div>
+          {/* Compact row - always visible */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full py-1.5 px-2 flex items-center gap-2 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors text-left group"
+          >
+            {/* Score */}
+            <span className={`text-xs font-bold w-5 text-center flex-shrink-0 ${getScoreColor(score)}`}>
+              {score || '–'}
+            </span>
+
+            {/* Title & metadata */}
             <div className="flex-1 min-w-0">
-              {/* Header: Title & Authors */}
-              <a
-                href={paper.arxiv_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-lg font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
-              >
+              <h3 className="text-xs font-medium text-stone-900 dark:text-stone-100 truncate group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors leading-tight">
                 {paper.title}
-              </a>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic truncate" title={paper.authors}>
+              </h3>
+              <p className="text-[11px] text-stone-400 dark:text-stone-500 truncate leading-tight">
                 {paper.authors}
               </p>
+            </div>
 
-              {/* Meta: Date & Category & BibTeX */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-2">
-                <span>{paper.date}</span>
-                {paper.reasoning_category && (
-                  <React.Fragment>
-                    <span>•</span>
-                    <span className="font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">{paper.reasoning_category}</span>
-                  </React.Fragment>
-                )}
-                {paper.arxiv_id && (
-                  <React.Fragment>
-                    <span>•</span>
+            {/* Category & Date */}
+            <div className="hidden md:flex items-center gap-2 text-[10px] text-stone-400 dark:text-stone-500 flex-shrink-0">
+              {paper.reasoning_category && (
+                <span className="px-1 py-0.5 bg-stone-100 dark:bg-stone-800 rounded">
+                  {paper.reasoning_category}
+                </span>
+              )}
+              <span className="w-16 text-right">{paper.date?.slice(0, 10)}</span>
+            </div>
+
+            {/* Expand indicator */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`text-stone-300 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          {/* Expanded content */}
+          {isExpanded && (
+            <div className="px-2 pb-2 ml-7 border-l-2 border-stone-200 dark:border-stone-700">
+              {/* TLDR */}
+              {paper.tldr && (
+                <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed mb-2 pl-2">
+                  {paper.tldr}
+                </p>
+              )}
+
+              {/* Actions row */}
+              <div className="flex items-center justify-between text-[11px] pl-2">
+                <div className="flex items-center gap-3">
+                  {paper.summary_md && (
+                    <ExpandableSection title="Summary">
+                      {paper.summary_md}
+                      {paper.excitement_reasoning && (
+                        <div className="mt-3 pt-3 border-t border-stone-200 dark:border-stone-700">
+                          <p className="text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">Assessment</p>
+                          <p className="text-xs text-stone-600 dark:text-stone-400">{paper.excitement_reasoning}</p>
+                          {paper.score_breakdown && (
+                            <p className="text-[10px] text-stone-500 mt-2">{paper.score_breakdown}</p>
+                          )}
+                        </div>
+                      )}
+                    </ExpandableSection>
+                  )}
+                  {paper.arxiv_id && (
+                    <ExpandableSection title="PDF">
+                      <iframe
+                        src={`/api/pdf/${paper.arxiv_id}`}
+                        width="100%"
+                        height="500"
+                        className="border border-stone-200 dark:border-stone-700 rounded"
+                        title={`${paper.title} PDF`}
+                      />
+                    </ExpandableSection>
+                  )}
+                  {paper.arxiv_id && (
                     <button
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         try {
                           const resp = await fetch(`/api/bibtex/${paper.arxiv_id}`);
                           const bibtex = await resp.text();
                           await navigator.clipboard.writeText(bibtex);
-                          alert('BibTeX copied to clipboard!');
-                        } catch (e) {
-                          console.error('Failed to copy BibTeX:', e);
+                        } catch (err) {
+                          console.error('Failed to copy BibTeX:', err);
                         }
                       }}
-                      className="font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors cursor-pointer"
+                      className="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-400"
                     >
-                      Copy BibTeX
+                      Cite
                     </button>
-                  </React.Fragment>
-                )}
-              </div>
-
-              {/* TLDR */}
-              {paper.tldr && (
-                <blockquote className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 border-l-4 border-gray-300 dark:border-gray-600 rounded-r-md">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    {paper.tldr}
-                  </p>
-                </blockquote>
-              )}
-
-              {/* Assessment */}
-              {assessment && (
-                <div className="mt-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-gray-200">Assessment</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {assessment}
-                  </p>
+                  )}
+                  <a
+                    href={paper.arxiv_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-400"
+                  >
+                    arXiv
+                  </a>
                 </div>
-              )}
 
-
-              {/* Expandable Summary & PDF */}
-              <div className="mt-4 space-y-2">
-                {paper.summary_md && (
-                  <ExpandableSection title="Show full summary">
-                    {/* This will now be rendered as rich HTML */
-                      paper.summary_md
-                    }
-                  </ExpandableSection>
-                )}
-
+                {/* User actions */}
                 {paper.arxiv_id && (
-                  <ExpandableSection title="Show PDF">
-                    <iframe
-                      src={`/api/pdf/${paper.arxiv_id}`}
-                      width="100%"
-                      height="600"
-                      className="border border-gray-300 dark:border-gray-700 rounded-md"
-                      title={`${paper.title} PDF`}
-                    />
-                  </ExpandableSection>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleBookmark(paper.arxiv_id);
+                      }}
+                      className={`transition-colors ${
+                        isBookmarked
+                          ? 'text-amber-500 hover:text-amber-600'
+                          : 'text-stone-400 hover:text-amber-500'
+                      }`}
+                    >
+                      {isBookmarked ? 'Saved' : 'Save'}
+                    </button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ReadingListDropdown
+                        currentList={currentList}
+                        listNames={listNames}
+                        onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
+          )}
         </div>
       );
     };
 
 
     /**
-     * The sticky filter sidebar
-     */
-    const FilterSidebar = ({ filters, setFilters, allCategories, resultsCount, darkMode, setDarkMode, bookmarkCount, listNames, getListCount }) => {
-
-      const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
-      };
-
-
-      const toggleCategory = (category) => {
-        setFilters(prev => {
-          const newCats = new Set(prev.selectedCategories);
-          if (newCats.has(category)) {
-            newCats.delete(category);
-          } else {
-            newCats.add(category);
-          }
-          return { ...prev, selectedCategories: newCats };
-        });
-      };
-
-      // debounce search input so there isnt a new API request every keystroke
-      const debounce = (func, delay) => {
-        let timeout;
-        return (...args) => {
-          clearTimeout(timeout);
-          timeout = setTimeout(() => {
-            func.apply(this, args);
-          }, delay);
-        };
-      };
-
-      // debounced version of filter change function
-      // only updates the state and trigger an API call 300ms after typing stops
-      const debouncedSearchChange = useCallback(
-        debounce((value) => handleFilterChange('search', value), 300),
-        []
-      );
-
-      const debouncedAuthorChange = useCallback(
-        debounce((value) => handleFilterChange('author', value), 300),
-        []
-      );
-
-
-      return (
-        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 md:h-screen md:sticky top-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline gap-3">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reasoning Hub</h2>
-              <a href="/about" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">About</a>
-            </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? '☀️' : '🌙'}
-            </button>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-6">
-            Showing {resultsCount} results
-          </p>
-
-
-          <div className="space-y-6">
-            {/* Search */}
-            <div>
-              <label htmlFor="search" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Search</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-400"><SearchIcon /></span>
-                </div>
-                <input
-                  type="text"
-                  id="search"
-                  defaultValue={filters.search}
-                  onChange={e => debouncedSearchChange(e.target.value)}
-                  placeholder="Search title, tldr, summary..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Author Search */}
-            <div>
-              <label htmlFor="author" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Author</label>
-              <input
-                type="text"
-                id="author"
-                defaultValue={filters.author}
-                onChange={e => debouncedAuthorChange(e.target.value)}
-                placeholder="Search by author name..."
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Date Range */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Date Range</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={filters.dateFrom}
-                  onChange={e => handleFilterChange('dateFrom', e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
-                <input
-                  type="date"
-                  value={filters.dateTo}
-                  onChange={e => handleFilterChange('dateTo', e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Sort by</label>
-              <SortToggle
-                options={[
-                  { label: 'Newest', value: 'newest' },
-                  { label: 'Score', value: 'score' },
-                ]}
-                selected={filters.sort}
-                onChange={val => handleFilterChange('sort', val)}
-              />
-            </div>
-
-
-            {/* Toggles */}
-            <div className="space-y-3">
-              <CustomSwitch
-                label="Summarized Only"
-                isChecked={filters.onlySummarized}
-                onChange={() => handleFilterChange('onlySummarized', !filters.onlySummarized)}
-              />
-              <CustomSwitch
-                label="Scored Only"
-                isChecked={filters.onlyScored}
-                onChange={() => handleFilterChange('onlyScored', !filters.onlyScored)}
-              />
-              <CustomSwitch
-                label={`Bookmarked Only (${bookmarkCount})`}
-                isChecked={filters.onlyBookmarked}
-                onChange={() => handleFilterChange('onlyBookmarked', !filters.onlyBookmarked)}
-              />
-            </div>
-
-
-            {/* Min Score Slider */}
-            <div>
-              <label htmlFor="minScore" className="flex justify-between text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                <span>Min excitement score</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">{filters.minScore} / 7</span>
-              </label>
-              <input
-                type="range"
-                id="minScore"
-                min="0"
-                max="7"
-                step="1"
-                value={filters.minScore}
-                onChange={e => handleFilterChange('minScore', parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-            </div>
-
-            {/* Categories */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Categories</label>
-
-
-              <div className="flex flex-wrap gap-2">
-                {allCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => toggleCategory(cat)}
-                    className={`px-3 py-1 text-sm font-medium rounded-full transition-all
-                     ${filters.selectedCategories.has(cat)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                      }
-                   `}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Reading Lists */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Reading Lists</label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleFilterChange('selectedList', null)}
-                  className={`px-3 py-1 text-sm font-medium rounded-full transition-all
-                    ${!filters.selectedList
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }
-                  `}
-                >
-                  All
-                </button>
-                {listNames.map(name => (
-                  <button
-                    key={name}
-                    onClick={() => handleFilterChange('selectedList', filters.selectedList === name ? null : name)}
-                    className={`px-3 py-1 text-sm font-medium rounded-full transition-all
-                      ${filters.selectedList === name
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                      }
-                    `}
-                  >
-                    {name} ({getListCount(name)})
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Export & Share Buttons */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-              <button
-                onClick={() => {
-                  const queryString = buildQueryString(filters, 0).replace('&page=0', '').replace('page=0', '');
-                  window.location.href = `/api/export/csv?${queryString}`;
-                }}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
-              >
-                Export to CSV ({resultsCount} papers)
-              </button>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert('Link copied to clipboard!');
-                }}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                Copy Shareable Link
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-
-    /**
-     * Pagination controls
+     * Editorial pagination with earthy tones
      */
     const Pagination = ({ currentPage, totalPages, onPageChange }) => {
-      // Don't show pagination if there's only one page
-      if (totalPages <= 1) {
-        return null;
-      }
+      if (totalPages <= 1) return null;
 
       return (
-        <div className="flex items-center justify-between mt-6">
+        <div className="flex items-center justify-center gap-2 md:gap-4 py-4">
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 0}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="px-4 py-2.5 text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-amber-800 dark:hover:text-amber-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
-            ◀ Prev
+            ← Prev
           </button>
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage + 1} of {totalPages}
+          <span className="text-sm text-stone-500 dark:text-stone-400 tabular-nums font-medium px-2">
+            {currentPage + 1} / {totalPages}
           </span>
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages - 1}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="px-4 py-2.5 text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-amber-800 dark:hover:text-amber-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
-            Next ▶
+            Next →
           </button>
         </div>
       );
     };
 
 
+    /**
+     * Top Navigation Bar
+     */
+    const TopNav = ({ activePage, setActivePage, darkMode, onToggleDarkMode }) => {
+      return (
+        <header className="sticky top-0 z-50 bg-white/95 dark:bg-stone-900/95 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="flex items-center justify-between h-12">
+              {/* Logo */}
+              <div className="flex items-center gap-3">
+                <h1 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100">
+                  Reasoning Hub
+                </h1>
+              </div>
+
+              {/* Navigation Tabs */}
+              <nav className="hidden md:flex items-center gap-1">
+                {NAV_ITEMS.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActivePage(item.id)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      activePage === item.id
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
+                        : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+
+              {/* Right side actions */}
+              <div className="flex items-center gap-2">
+                <a
+                  href="/about"
+                  className="text-xs text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors"
+                >
+                  About
+                </a>
+                <button
+                  onClick={onToggleDarkMode}
+                  className="p-1.5 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 transition-colors rounded-md hover:bg-stone-100 dark:hover:bg-stone-800"
+                  title={darkMode ? "Light mode" : "Dark mode"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {darkMode ? (
+                      <><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></>
+                    ) : (
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    )}
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </header>
+      );
+    };
+
+    /**
+     * Mobile Bottom Navigation
+     */
+    const MobileBottomNav = ({ activePage, setActivePage, onOpenFilters }) => {
+      const navItems = [
+        { id: 'papers', label: 'Papers', icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+          </svg>
+        )},
+        { id: 'filters', label: 'Filters', icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+        )},
+        { id: 'trends', label: 'Trends', icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+        )},
+        { id: 'lists', label: 'Lists', icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+        )},
+        { id: 'settings', label: 'Settings', icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        )}
+      ];
+
+      return (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 safe-area-bottom">
+          <div className="flex items-center justify-around h-16 px-2">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => item.id === 'filters' ? onOpenFilters() : setActivePage(item.id)}
+                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-lg transition-colors ${
+                  (item.id === 'filters' ? false : activePage === item.id)
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-stone-500 dark:text-stone-400'
+                }`}
+              >
+                {item.icon}
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      );
+    };
+
+
+    /**
+     * Trends Page Component
+     */
+    // Chart component using Chart.js
+    const ChartComponent = ({ type, data, options, className }) => {
+      const canvasRef = React.useRef(null);
+      const chartRef = React.useRef(null);
+
+      useEffect(() => {
+        if (!canvasRef.current || !data) return;
+
+        // Destroy previous chart
+        if (chartRef.current) {
+          chartRef.current.destroy();
+        }
+
+        const ctx = canvasRef.current.getContext('2d');
+        chartRef.current = new Chart(ctx, {
+          type,
+          data,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            ...options
+          }
+        });
+
+        return () => {
+          if (chartRef.current) {
+            chartRef.current.destroy();
+          }
+        };
+      }, [type, data, options]);
+
+      return <canvas ref={canvasRef} className={className} />;
+    };
+
+    const TrendsPage = ({ papers: initialPapers }) => {
+      const [allPapers, setAllPapers] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      // Fetch all papers for stats on mount
+      useEffect(() => {
+        fetch('/api/papers/stats')
+          .then(res => res.json())
+          .then(data => {
+            setAllPapers(data.papers || []);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error('Failed to fetch stats:', err);
+            setAllPapers(initialPapers);
+            setLoading(false);
+          });
+      }, []);
+
+      const papers = allPapers.length > 0 ? allPapers : initialPapers;
+
+      const stats = useMemo(() => {
+        if (!papers.length) return null;
+
+        const scored = papers.filter(p => p.excitement_score > 0);
+        const avgScore = scored.length
+          ? (scored.reduce((sum, p) => sum + p.excitement_score, 0) / scored.length).toFixed(1)
+          : 0;
+
+        // Categories
+        const categories = {};
+        papers.forEach(p => {
+          if (p.reasoning_category) {
+            categories[p.reasoning_category] = (categories[p.reasoning_category] || 0) + 1;
+          }
+        });
+        const topCategories = Object.entries(categories)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8);
+
+        // Score distribution
+        const scoreDistribution = [0, 0, 0, 0, 0, 0, 0, 0];
+        scored.forEach(p => {
+          scoreDistribution[p.excitement_score]++;
+        });
+
+        // Papers over time (by week)
+        const papersByWeek = {};
+        papers.forEach(p => {
+          if (p.date) {
+            const date = new Date(p.date);
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay());
+            const weekKey = weekStart.toISOString().slice(0, 10);
+            papersByWeek[weekKey] = (papersByWeek[weekKey] || 0) + 1;
+          }
+        });
+        const timelineData = Object.entries(papersByWeek)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .slice(-12); // Last 12 weeks
+
+        // Top authors
+        const authorCounts = {};
+        papers.forEach(p => {
+          if (p.authors) {
+            const firstAuthor = p.authors.split(',')[0].trim();
+            if (firstAuthor && !firstAuthor.includes('et al')) {
+              authorCounts[firstAuthor] = (authorCounts[firstAuthor] || 0) + 1;
+            }
+          }
+        });
+        const topAuthors = Object.entries(authorCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10);
+
+        // Top-tier papers (A and above)
+        const hotPapers = papers
+          .filter(p => p.excitement_score >= 5)
+          .sort((a, b) => b.excitement_score - a.excitement_score)
+          .slice(0, 5);
+
+        // High score count
+        const highScoreCount = scored.filter(p => p.excitement_score >= 5).length;
+
+        // Tier distribution
+        const tierDistribution = { S: 0, A: 0, B: 0, C: 0, D: 0 };
+        scored.forEach(p => {
+          const score = p.excitement_score;
+          if (score >= 7) tierDistribution.S++;
+          else if (score >= 5) tierDistribution.A++;
+          else if (score === 4) tierDistribution.B++;
+          else if (score >= 2) tierDistribution.C++;
+          else tierDistribution.D++;
+        });
+
+        // Score breakdown averages (N/U/R/A)
+        const breakdownTotals = { Novelty: 0, Utility: 0, Results: 0, Access: 0 };
+        let breakdownCount = 0;
+        scored.forEach(p => {
+          if (p.score_breakdown) {
+            const parts = p.score_breakdown.split(',').map(s => s.trim());
+            parts.forEach(part => {
+              const [key, val] = part.split(':');
+              if (key && val && breakdownTotals.hasOwnProperty(key.trim())) {
+                breakdownTotals[key.trim()] += parseInt(val) || 0;
+              }
+            });
+            breakdownCount++;
+          }
+        });
+        const breakdownAvg = breakdownCount > 0 ? {
+          Novelty: (breakdownTotals.Novelty / breakdownCount).toFixed(1),
+          Utility: (breakdownTotals.Utility / breakdownCount).toFixed(1),
+          Results: (breakdownTotals.Results / breakdownCount).toFixed(1),
+          Access: (breakdownTotals.Access / breakdownCount).toFixed(1)
+        } : null;
+
+        return {
+          avgScore,
+          topCategories,
+          scoreDistribution,
+          totalPapers: papers.length,
+          scoredPapers: scored.length,
+          highScoreCount,
+          timelineData,
+          topAuthors,
+          hotPapers,
+          categories,
+          tierDistribution,
+          breakdownAvg
+        };
+      }, [papers]);
+
+      if (loading || !stats) {
+        return (
+          <div className="flex items-center justify-center h-64">
+            <p className="text-stone-500">{loading ? 'Loading all papers...' : 'Loading trends...'}</p>
+          </div>
+        );
+      }
+
+      // Chart colors
+      const chartColors = {
+        amber: 'rgb(217, 119, 6)',
+        teal: 'rgb(15, 118, 110)',
+        stone: 'rgb(120, 113, 108)',
+        red: 'rgb(220, 38, 38)',
+        blue: 'rgb(37, 99, 235)',
+        green: 'rgb(22, 163, 74)',
+        purple: 'rgb(147, 51, 234)',
+        orange: 'rgb(234, 88, 12)'
+      };
+
+      // Score distribution with tier-based colors
+      const tierScoreColors = [
+        '#dc2626', // 0: D-tier (red)
+        '#dc2626', // 1: D-tier (red)
+        '#78716c', // 2: C-tier (stone)
+        '#78716c', // 3: C-tier (stone)
+        '#d97706', // 4: B-tier (amber)
+        '#0f766e', // 5: A-tier (teal)
+        '#0f766e', // 6: A-tier (teal)
+        '#9333ea'  // 7: S-tier (purple)
+      ];
+      const scoreChartData = {
+        labels: ['0', '1', '2', '3', '4', '5', '6', '7'],
+        datasets: [{
+          label: 'Papers',
+          data: stats.scoreDistribution,
+          backgroundColor: tierScoreColors,
+          borderRadius: 4
+        }]
+      };
+
+      const timelineChartData = {
+        labels: stats.timelineData.map(([date]) => {
+          const d = new Date(date);
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [{
+          label: 'Papers',
+          data: stats.timelineData.map(([_, count]) => count),
+          borderColor: chartColors.amber,
+          backgroundColor: 'rgba(217, 119, 6, 0.1)',
+          fill: true,
+          tension: 0.3
+        }]
+      };
+
+      const categoryColors = [chartColors.amber, chartColors.teal, chartColors.blue, chartColors.purple, chartColors.green, chartColors.orange, chartColors.red, chartColors.stone];
+      const categoryChartData = {
+        labels: stats.topCategories.map(([cat]) => cat),
+        datasets: [{
+          data: stats.topCategories.map(([_, count]) => count),
+          backgroundColor: categoryColors.slice(0, stats.topCategories.length),
+          borderWidth: 0
+        }]
+      };
+
+      // Tier distribution chart
+      const tierColors = {
+        S: 'rgb(147, 51, 234)', // purple
+        A: 'rgb(15, 118, 110)', // teal
+        B: 'rgb(217, 119, 6)',  // amber
+        C: 'rgb(120, 113, 108)', // stone
+        D: 'rgb(220, 38, 38)'   // red
+      };
+      const tierChartData = {
+        labels: ['S', 'A', 'B', 'C', 'D'],
+        datasets: [{
+          label: 'Papers',
+          data: [stats.tierDistribution.S, stats.tierDistribution.A, stats.tierDistribution.B, stats.tierDistribution.C, stats.tierDistribution.D],
+          backgroundColor: [tierColors.S, tierColors.A, tierColors.B, tierColors.C, tierColors.D],
+          borderRadius: 4
+        }]
+      };
+
+      // Breakdown radar chart
+      const breakdownRadarData = stats.breakdownAvg ? {
+        labels: ['Novelty (0-3)', 'Utility (0-1)', 'Results (0-2)', 'Access (0-1)'],
+        datasets: [{
+          label: 'Average',
+          data: [
+            parseFloat(stats.breakdownAvg.Novelty),
+            parseFloat(stats.breakdownAvg.Utility),
+            parseFloat(stats.breakdownAvg.Results),
+            parseFloat(stats.breakdownAvg.Access)
+          ],
+          backgroundColor: 'rgba(217, 119, 6, 0.2)',
+          borderColor: chartColors.amber,
+          borderWidth: 2,
+          pointBackgroundColor: chartColors.amber
+        }]
+      } : null;
+
+      return (
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <h1 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100 mb-6">
+            Trends & Insights
+          </h1>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">Total Papers</p>
+              <p className="text-2xl font-bold text-stone-900 dark:text-stone-100">{stats.totalPapers}</p>
+            </div>
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">Avg Score</p>
+              <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">{stats.avgScore}<span className="text-sm text-stone-400">/7</span></p>
+            </div>
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">A-Tier or Higher</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.tierDistribution.S + stats.tierDistribution.A}</p>
+            </div>
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">Categories</p>
+              <p className="text-2xl font-bold text-stone-900 dark:text-stone-100">{Object.keys(stats.categories).length}</p>
+            </div>
+          </div>
+
+          {/* Tier Pills */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800">
+              <span className="text-sm font-bold text-purple-700 dark:text-purple-400">S</span>
+              <span className="text-xs text-stone-600 dark:text-stone-400">{stats.tierDistribution.S} Groundbreaking</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800">
+              <span className="text-sm font-bold text-teal-700 dark:text-teal-400">A</span>
+              <span className="text-xs text-stone-600 dark:text-stone-400">{stats.tierDistribution.A} Strong</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">B</span>
+              <span className="text-xs text-stone-600 dark:text-stone-400">{stats.tierDistribution.B} Solid</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-800/50 border border-stone-300 dark:border-stone-700">
+              <span className="text-sm font-bold text-stone-600 dark:text-stone-400">C</span>
+              <span className="text-xs text-stone-600 dark:text-stone-400">{stats.tierDistribution.C} Narrow</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
+              <span className="text-sm font-bold text-red-700 dark:text-red-400">D</span>
+              <span className="text-xs text-stone-600 dark:text-stone-400">{stats.tierDistribution.D} Weak</span>
+            </div>
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid lg:grid-cols-2 gap-4 mb-6">
+            {/* Score Distribution */}
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">Score Distribution</h2>
+              <div className="h-48">
+                <ChartComponent
+                  type="bar"
+                  data={scoreChartData}
+                  options={{
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                      x: { grid: { display: false } }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Papers Over Time */}
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">Papers Over Time (Weekly)</h2>
+              <div className="h-48">
+                <ChartComponent
+                  type="line"
+                  data={timelineChartData}
+                  options={{
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                      x: { grid: { display: false } }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Second Row */}
+          <div className="grid lg:grid-cols-4 gap-4 mb-6">
+            {/* Score Breakdown Averages */}
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">Score Breakdown Avg</h2>
+              {stats.breakdownAvg ? (
+                <div className="space-y-3">
+                  {(() => {
+                    const items = [
+                      { key: 'Novelty', max: 3, barColor: '#0f766e', textColor: 'text-teal-600 dark:text-teal-400' },
+                      { key: 'Utility', max: 1, barColor: '#d97706', textColor: 'text-amber-600 dark:text-amber-400' },
+                      { key: 'Results', max: 2, barColor: '#059669', textColor: 'text-emerald-600 dark:text-emerald-400' },
+                      { key: 'Access', max: 1, barColor: '#2563eb', textColor: 'text-blue-600 dark:text-blue-400' }
+                    ];
+                    return items.map(({ key, max, barColor, textColor }) => {
+                      const val = parseFloat(stats.breakdownAvg[key]);
+                      const pct = (val / max) * 100;
+                      return (
+                        <div key={key}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-stone-600 dark:text-stone-400">{key}</span>
+                            <span className={`font-medium ${textColor}`}>{val}/{max}</span>
+                          </div>
+                          <div className="h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${pct}%`, backgroundColor: barColor }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              ) : (
+                <p className="text-xs text-stone-400 text-center py-8">No breakdown data</p>
+              )}
+            </div>
+
+            {/* Category Breakdown */}
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">Categories</h2>
+              <div className="h-48">
+                <ChartComponent
+                  type="doughnut"
+                  data={categoryChartData}
+                  options={{
+                    plugins: {
+                      legend: {
+                        position: 'right',
+                        labels: { boxWidth: 10, font: { size: 9 } }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Top Authors */}
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">Top Authors</h2>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {stats.topAuthors.slice(0, 6).map(([author, count], i) => (
+                  <div key={author} className="flex items-center gap-2">
+                    <span className="text-xs text-stone-400 w-4">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-stone-700 dark:text-stone-300 truncate">{author}</div>
+                    </div>
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* A-Tier Papers */}
+            <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+              <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">
+                A-Tier Papers
+                <span className="ml-2 text-xs font-normal text-stone-400">(5+)</span>
+              </h2>
+              {stats.hotPapers.length > 0 ? (
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {stats.hotPapers.map(paper => (
+                    <a
+                      key={paper.id}
+                      href={paper.arxiv_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-2 rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+                    >
+                      <div className="flex items-start gap-2 mb-1">
+                        <span className={`text-sm font-bold ${getScoreColor(paper.excitement_score)}`}>
+                          {paper.excitement_score}
+                        </span>
+                        <p className="text-xs text-stone-700 dark:text-stone-300 line-clamp-2 leading-tight flex-1">
+                          {paper.title}
+                        </p>
+                      </div>
+                      {paper.score_breakdown && (
+                        <div className="ml-6">
+                          <ScoreBreakdownChips breakdownString={paper.score_breakdown} compact={true} />
+                        </div>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-stone-400 text-center py-8">No A-tier papers yet</p>
+              )}
+            </div>
+          </div>
+
+          {/* Categories Detail */}
+          <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
+            <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">All Categories</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {stats.topCategories.map(([category, count], i) => {
+                const maxCount = stats.topCategories[0][1];
+                const percentage = ((count / maxCount) * 100).toFixed(0);
+                return (
+                  <div key={category} className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: categoryColors[i % categoryColors.length] }}
+                    />
+                    <span className="text-xs text-stone-600 dark:text-stone-400 truncate flex-1">{category}</span>
+                    <span className="text-xs font-medium text-stone-500">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+
+    /**
+     * Reading Lists Page Component
+     */
+    const ReadingListsPage = ({ readingLists, papers, onRemoveFromList, isBookmarked, toggleBookmark }) => {
+      const [activeList, setActiveList] = useState(Object.keys(readingLists)[0] || 'To Read');
+
+      const getPaperById = (arxivId) => papers.find(p => p.arxiv_id === arxivId);
+
+      return (
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <h1 className="font-serif text-3xl font-bold text-stone-900 dark:text-stone-100 mb-8">
+            Reading Lists
+          </h1>
+
+          <div className="flex gap-2 mb-6 border-b border-stone-200 dark:border-stone-800">
+            {Object.keys(readingLists).map(listName => (
+              <button
+                key={listName}
+                onClick={() => setActiveList(listName)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeList === listName
+                    ? 'border-amber-600 text-amber-800 dark:text-amber-400'
+                    : 'border-transparent text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
+                }`}
+              >
+                {listName}
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-stone-100 dark:bg-stone-800">
+                  {readingLists[listName].length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
+            {readingLists[activeList]?.length === 0 ? (
+              <div className="p-12 text-center">
+                <p className="text-stone-500 dark:text-stone-400">No papers in this list yet</p>
+                <p className="text-sm text-stone-400 dark:text-stone-500 mt-1">
+                  Add papers from the Papers tab
+                </p>
+              </div>
+            ) : (
+              readingLists[activeList]?.map(arxivId => {
+                const paper = getPaperById(arxivId);
+                if (!paper) return null;
+                return (
+                  <div key={arxivId} className="p-4 border-b border-stone-100 dark:border-stone-800 last:border-b-0 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <a
+                          href={paper.arxiv_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-stone-900 dark:text-stone-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
+                        >
+                          {paper.title}
+                        </a>
+                        <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 truncate">
+                          {paper.authors}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {paper.excitement_score > 0 && (
+                          <span className={`text-sm font-bold ${getScoreColor(paper.excitement_score)}`}>
+                            {paper.excitement_score}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => onRemoveFromList(arxivId, activeList)}
+                          className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
+                          title="Remove from list"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      );
+    };
+
+
+    /**
+     * Settings Page Component
+     */
+    const SettingsPage = ({
+      themePreference, setThemePreference,
+      defaultSort, setDefaultSort,
+      defaultMinScore, setDefaultMinScore,
+      keyboardEnabled, setKeyboardEnabled,
+      onClearBookmarks, onClearLists,
+      bookmarkCount, bookmarks, readingLists
+    }) => {
+      const [exportStatus, setExportStatus] = useState('');
+
+      const handleExport = () => {
+        const data = {
+          bookmarks: Array.from(bookmarks),
+          readingLists: readingLists,
+          exportedAt: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `reasoning-hub-data-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportStatus('Exported!');
+        setTimeout(() => setExportStatus(''), 2000);
+      };
+
+      const ToggleSwitch = ({ enabled, onChange }) => (
+        <button
+          onClick={() => onChange(!enabled)}
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            enabled ? 'bg-amber-600' : 'bg-stone-300 dark:bg-stone-600'
+          }`}
+        >
+          <span
+            className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+              enabled ? 'left-6' : 'left-1'
+            }`}
+          />
+        </button>
+      );
+
+      const OptionButton = ({ selected, onClick, children }) => (
+        <button
+          onClick={onClick}
+          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            selected
+              ? 'bg-amber-600 text-white'
+              : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
+          }`}
+        >
+          {children}
+        </button>
+      );
+
+      return (
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          <h1 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100 mb-6">
+            Settings
+          </h1>
+
+          {/* Appearance */}
+          <section className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 overflow-hidden mb-4">
+            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800">
+              <h2 className="font-semibold text-stone-900 dark:text-stone-100 text-sm">Appearance</h2>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Theme</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Choose your preferred color scheme</p>
+                </div>
+                <div className="flex gap-1">
+                  <OptionButton selected={themePreference === 'system'} onClick={() => setThemePreference('system')}>
+                    System
+                  </OptionButton>
+                  <OptionButton selected={themePreference === 'light'} onClick={() => setThemePreference('light')}>
+                    Light
+                  </OptionButton>
+                  <OptionButton selected={themePreference === 'dark'} onClick={() => setThemePreference('dark')}>
+                    Dark
+                  </OptionButton>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Defaults */}
+          <section className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 overflow-hidden mb-4">
+            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800">
+              <h2 className="font-semibold text-stone-900 dark:text-stone-100 text-sm">Default Filters</h2>
+            </div>
+            <div className="p-5 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Sort Order</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Default sorting when you open the app</p>
+                </div>
+                <div className="flex gap-1">
+                  <OptionButton selected={defaultSort === 'score'} onClick={() => setDefaultSort('score')}>
+                    By Score
+                  </OptionButton>
+                  <OptionButton selected={defaultSort === 'newest'} onClick={() => setDefaultSort('newest')}>
+                    Newest
+                  </OptionButton>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Minimum Score</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Only show papers with this score or higher</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="7"
+                    value={defaultMinScore}
+                    onChange={(e) => setDefaultMinScore(parseInt(e.target.value, 10))}
+                    className="w-24 accent-amber-600"
+                  />
+                  <span className="text-sm font-medium text-stone-900 dark:text-stone-100 w-4 text-center">
+                    {defaultMinScore}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Keyboard */}
+          <section className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 overflow-hidden mb-4">
+            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800">
+              <h2 className="font-semibold text-stone-900 dark:text-stone-100 text-sm">Keyboard</h2>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Keyboard Shortcuts</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Use j/k to navigate, Enter to expand, s to save</p>
+                </div>
+                <ToggleSwitch enabled={keyboardEnabled} onChange={setKeyboardEnabled} />
+              </div>
+            </div>
+          </section>
+
+          {/* Data */}
+          <section className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 overflow-hidden mb-4">
+            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800">
+              <h2 className="font-semibold text-stone-900 dark:text-stone-100 text-sm">Data Management</h2>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Bookmarks</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{bookmarkCount} papers saved</p>
+                </div>
+                <button
+                  onClick={onClearBookmarks}
+                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Reading Lists</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Your curated paper collections</p>
+                </div>
+                <button
+                  onClick={onClearLists}
+                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Export Data</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Download bookmarks and lists as JSON</p>
+                </div>
+                <button
+                  onClick={handleExport}
+                  className="px-3 py-1.5 text-xs bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-lg transition-colors"
+                >
+                  {exportStatus || 'Export'}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* About */}
+          <section className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 overflow-hidden">
+            <div className="px-5 py-3 border-b border-stone-100 dark:border-stone-800">
+              <h2 className="font-semibold text-stone-900 dark:text-stone-100 text-sm">About</h2>
+            </div>
+            <div className="p-5">
+              <p className="text-stone-600 dark:text-stone-400 text-sm mb-3">
+                Reasoning Hub helps researchers track the latest AI reasoning papers.
+              </p>
+              <a
+                href="/about"
+                className="text-sm text-amber-700 dark:text-amber-500 hover:underline"
+              >
+                Learn more about scoring methodology →
+              </a>
+            </div>
+          </section>
+        </div>
+      );
+    };
+
+
+    /**
+     * Collapsible Sidebar Section
+     */
+    const SidebarSection = ({ title, children, defaultOpen = true }) => {
+      const [isOpen, setIsOpen] = useState(defaultOpen);
+
+      return (
+        <div className="border-b border-stone-200 dark:border-stone-800 pb-3 mb-3 last:border-b-0 last:mb-0 last:pb-0">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-full flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1.5 hover:text-stone-700 dark:hover:text-stone-300"
+          >
+            {title}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          {isOpen && <div>{children}</div>}
+        </div>
+      );
+    };
 
 
     /**
@@ -817,7 +1735,9 @@
 
       const isBookmarked = (arxivId) => bookmarks.has(arxivId);
 
-      return { bookmarks, toggleBookmark, isBookmarked };
+      const clearBookmarks = () => setBookmarks(new Set());
+
+      return { bookmarks, toggleBookmark, isBookmarked, clearBookmarks };
     };
 
     /**
@@ -877,7 +1797,14 @@
 
       const getListCount = (listName) => readingLists[listName]?.length || 0;
 
-      return { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount };
+      const clearLists = () => {
+        setReadingLists(DEFAULT_LISTS.reduce((acc, name) => {
+          acc[name] = [];
+          return acc;
+        }, {}));
+      };
+
+      return { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount, clearLists };
     };
 
     /**
@@ -909,12 +1836,17 @@
      * Main App Component
      */
     function App() {
-      // --- Dark Mode with localStorage persistence ---
-      const [darkMode, setDarkMode] = useState(() => {
-        const saved = localStorage.getItem('darkMode');
-        if (saved !== null) return JSON.parse(saved);
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      // --- Theme preference (system/light/dark) with localStorage ---
+      const [themePreference, setThemePreference] = useState(() => {
+        return localStorage.getItem('themePreference') || 'system';
       });
+
+      // Computed dark mode based on preference
+      const darkMode = useMemo(() => {
+        if (themePreference === 'dark') return true;
+        if (themePreference === 'light') return false;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }, [themePreference]);
 
       // Apply dark mode class to document
       useEffect(() => {
@@ -923,18 +1855,57 @@
         } else {
           document.documentElement.classList.remove('dark');
         }
-        localStorage.setItem('darkMode', JSON.stringify(darkMode));
-      }, [darkMode]);
+        localStorage.setItem('themePreference', themePreference);
+      }, [darkMode, themePreference]);
+
+      // --- Default sort preference ---
+      const [defaultSort, setDefaultSort] = useState(() => {
+        return localStorage.getItem('defaultSort') || 'score';
+      });
+      useEffect(() => {
+        localStorage.setItem('defaultSort', defaultSort);
+      }, [defaultSort]);
+
+      // --- Default minimum score ---
+      const [defaultMinScore, setDefaultMinScore] = useState(() => {
+        return parseInt(localStorage.getItem('defaultMinScore') || '0', 10);
+      });
+      useEffect(() => {
+        localStorage.setItem('defaultMinScore', defaultMinScore.toString());
+      }, [defaultMinScore]);
+
+      // --- Keyboard shortcuts enabled ---
+      const [keyboardEnabled, setKeyboardEnabled] = useState(() => {
+        const saved = localStorage.getItem('keyboardEnabled');
+        return saved !== null ? JSON.parse(saved) : true;
+      });
+      useEffect(() => {
+        localStorage.setItem('keyboardEnabled', JSON.stringify(keyboardEnabled));
+      }, [keyboardEnabled]);
+
+      // Active page state for navigation
+      const [activePage, setActivePage] = useState('papers');
+
+      // Sidebar collapsed state
+      const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+      // Mobile filters drawer state
+      const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+      // Selected paper for preview pane
+      const [selectedPaper, setSelectedPaper] = useState(null);
 
       // Bookmarks hook
-      const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks();
+      const { bookmarks, toggleBookmark, isBookmarked, clearBookmarks } = useBookmarks();
 
       // Reading lists hook
-      const { readingLists, addToList, getListForPaper, getListNames, getListCount } = useReadingLists();
+      const { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount, clearLists } = useReadingLists();
 
-      // Parse initial filters from URL
+      // Parse initial filters from URL (with defaults from settings)
       const getInitialFilters = () => {
         const params = new URLSearchParams(window.location.search);
+        const savedSort = localStorage.getItem('defaultSort') || 'score';
+        const savedMinScore = parseInt(localStorage.getItem('defaultMinScore') || '0', 10);
         return {
           search: params.get('search') || '',
           author: params.get('author') || '',
@@ -942,11 +1913,11 @@
           dateTo: params.get('dateTo') || '',
           selectedCategories: new Set(params.getAll('category')),
           onlySummarized: params.get('onlySummarized') === 'true',
-          minScore: parseInt(params.get('minScore') || '0', 10),
+          minScore: parseInt(params.get('minScore') || savedMinScore.toString(), 10),
           onlyScored: params.get('onlyScored') === 'true',
           onlyBookmarked: false,  // Local only, not in URL
           selectedList: null,     // Reading list filter, local only
-          sort: params.get('sort') || 'score',
+          sort: params.get('sort') || savedSort,
         };
       };
 
@@ -1034,76 +2005,723 @@
       };
 
 
+      // Skeleton loader for cards
+      const SkeletonCard = () => (
+        <div className="bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 p-4 animate-pulse">
+          <div className="flex justify-between mb-3">
+            <div className="flex gap-2">
+              <div className="h-4 w-16 bg-stone-200 dark:bg-stone-700 rounded"></div>
+              <div className="h-4 w-20 bg-stone-200 dark:bg-stone-700 rounded"></div>
+            </div>
+            <div className="h-6 w-8 bg-stone-200 dark:bg-stone-700 rounded"></div>
+          </div>
+          <div className="h-5 w-full bg-stone-200 dark:bg-stone-700 rounded mb-2"></div>
+          <div className="h-5 w-3/4 bg-stone-200 dark:bg-stone-700 rounded mb-3"></div>
+          <div className="h-4 w-1/2 bg-stone-200 dark:bg-stone-700 rounded mb-4"></div>
+          <div className="space-y-2">
+            <div className="h-4 w-full bg-stone-200 dark:bg-stone-700 rounded"></div>
+            <div className="h-4 w-full bg-stone-200 dark:bg-stone-700 rounded"></div>
+            <div className="h-4 w-2/3 bg-stone-200 dark:bg-stone-700 rounded"></div>
+          </div>
+        </div>
+      );
+
+      // Paper card for grid layout
+      const PaperGridCard = ({ paper, isBookmarked, onToggleBookmark, currentList, listNames, onSelectList, isFocused, isExpanded, onToggleExpand }) => {
+        const score = paper.excitement_score || 0;
+        const cardRef = React.useRef(null);
+
+        // Scroll into view when focused
+        useEffect(() => {
+          if (isFocused && cardRef.current) {
+            cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, [isFocused]);
+
+        return (
+          <article
+            ref={cardRef}
+            className={`bg-white dark:bg-stone-900 rounded-lg border-2 overflow-hidden transition-all ${
+              isExpanded ? 'col-span-full' : ''
+            } ${
+              isFocused
+                ? 'border-amber-500 dark:border-amber-400 ring-2 ring-amber-500/20'
+                : 'border-stone-200 dark:border-stone-800'
+            }`}
+          >
+            {/* Card header - always visible */}
+            <div className="p-4">
+              {/* Top row */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {paper.reasoning_category && (
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">
+                      {paper.reasoning_category}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-stone-400">{paper.date?.slice(0, 10)}</span>
+                </div>
+                {score > 0 && (
+                  <div className={`flex items-baseline gap-0.5 ${getScoreColor(score)}`}>
+                    <span className="text-lg font-bold leading-none">{score}</span>
+                    <span className="text-[10px] text-stone-400">/7</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Title */}
+              <h3 className="font-semibold text-stone-900 dark:text-stone-100 mb-1 leading-snug">
+                <a href={paper.arxiv_link} target="_blank" rel="noopener noreferrer" className="hover:text-amber-700 dark:hover:text-amber-400">
+                  {paper.title}
+                </a>
+              </h3>
+
+              {/* Authors */}
+              <p className="text-xs text-stone-500 dark:text-stone-400 mb-3 line-clamp-1">{paper.authors}</p>
+
+              {/* TLDR - always show */}
+              {paper.tldr && (
+                <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed mb-2 line-clamp-3">
+                  {paper.tldr}
+                </p>
+              )}
+
+              {/* Score breakdown chips */}
+              {paper.score_breakdown && (
+                <div className="mb-3">
+                  <ScoreBreakdownChips breakdownString={paper.score_breakdown} compact={true} />
+                </div>
+              )}
+
+              {/* Actions row */}
+              <div className="flex items-center justify-between pt-2 border-t border-stone-100 dark:border-stone-800">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={onToggleExpand}
+                    className="px-2 py-1.5 text-xs text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 font-medium rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                  >
+                    {isExpanded ? 'Collapse' : 'Read more'}
+                  </button>
+                  <a
+                    href={paper.arxiv_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-1.5 text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                  >
+                    arXiv
+                  </a>
+                  {paper.arxiv_id && (
+                    <button
+                      onClick={async () => {
+                        const resp = await fetch(`/api/bibtex/${paper.arxiv_id}`);
+                        const bibtex = await resp.text();
+                        await navigator.clipboard.writeText(bibtex);
+                      }}
+                      className="px-2 py-1.5 text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                    >
+                      Cite
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onToggleBookmark(paper.arxiv_id)}
+                    className={`px-2 py-1.5 text-xs rounded-md transition-colors ${
+                      isBookmarked ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-stone-400 hover:text-amber-500 hover:bg-stone-100 dark:hover:bg-stone-800'
+                    }`}
+                  >
+                    {isBookmarked ? 'Saved' : 'Save'}
+                  </button>
+                  <ReadingListDropdown
+                    currentList={currentList}
+                    listNames={listNames}
+                    onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Expanded content */}
+            {isExpanded && (
+              <div className="px-4 pb-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/30">
+                <div className="pt-4 grid md:grid-cols-2 gap-6">
+                  {/* Left column - summary */}
+                  <div>
+                    {paper.summary_md && (
+                      <div className="prose prose-sm prose-stone dark:prose-invert max-w-none">
+                        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(paper.summary_md)) }} />
+                      </div>
+                    )}
+                    {(paper.excitement_reasoning || paper.score_breakdown) && (
+                      <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">Assessment</h4>
+                        {paper.score_breakdown && (
+                          <div className="mb-3">
+                            <ScoreBreakdownChips breakdownString={paper.score_breakdown} compact={false} />
+                          </div>
+                        )}
+                        {paper.excitement_reasoning && (
+                          <p className="text-sm text-stone-600 dark:text-stone-400 italic">{paper.excitement_reasoning}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {/* Right column - PDF */}
+                  {paper.arxiv_id && (
+                    <div>
+                      <iframe
+                        src={`/api/pdf/${paper.arxiv_id}`}
+                        width="100%"
+                        height="500"
+                        className="border border-stone-200 dark:border-stone-700 rounded"
+                        title={`${paper.title} PDF`}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </article>
+        );
+      };
+
+      // Papers page content - card grid layout with keyboard navigation
+      const PapersPageContent = () => {
+        const [focusedIndex, setFocusedIndex] = useState(0);
+        const [expandedId, setExpandedId] = useState(null);
+
+        const filteredPapers = papers
+          .filter(paper => !filters.onlyBookmarked || isBookmarked(paper.arxiv_id))
+          .filter(paper => !filters.selectedList || getListForPaper(paper.arxiv_id) === filters.selectedList);
+
+        // Keyboard navigation
+        useEffect(() => {
+          const handleKeyDown = (e) => {
+            // Don't handle if keyboard shortcuts disabled or typing in input
+            if (!keyboardEnabled) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            const paper = filteredPapers[focusedIndex];
+
+            switch (e.key) {
+              case 'j':
+              case 'ArrowDown':
+                e.preventDefault();
+                setFocusedIndex(prev => Math.min(prev + 1, filteredPapers.length - 1));
+                break;
+              case 'k':
+              case 'ArrowUp':
+                e.preventDefault();
+                setFocusedIndex(prev => Math.max(prev - 1, 0));
+                break;
+              case 'Enter':
+                e.preventDefault();
+                if (paper) {
+                  setExpandedId(expandedId === paper.id ? null : paper.id);
+                }
+                break;
+              case 's':
+                e.preventDefault();
+                if (paper?.arxiv_id) {
+                  toggleBookmark(paper.arxiv_id);
+                }
+                break;
+              case 'o':
+                e.preventDefault();
+                if (paper?.arxiv_link) {
+                  window.open(paper.arxiv_link, '_blank');
+                }
+                break;
+              case 'Escape':
+                e.preventDefault();
+                setExpandedId(null);
+                break;
+            }
+          };
+
+          window.addEventListener('keydown', handleKeyDown);
+          return () => window.removeEventListener('keydown', handleKeyDown);
+        }, [focusedIndex, filteredPapers, expandedId, keyboardEnabled]);
+
+        // Reset focus when papers change
+        useEffect(() => {
+          setFocusedIndex(0);
+          setExpandedId(null);
+        }, [currentPage]);
+
+        return (
+          <div className="p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm text-stone-500">{resultsCount} papers</span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 0}
+                    className="text-sm text-stone-500 hover:text-stone-700 disabled:opacity-30"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-sm text-stone-400">{currentPage + 1} / {totalPages}</span>
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages - 1}
+                    className="text-sm text-stone-500 hover:text-stone-700 disabled:opacity-30"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+                {[...Array(9)].map((_, i) => <SkeletonCard key={i} />)}
+              </div>
+            ) : filteredPapers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+                {filteredPapers.map((paper, index) => (
+                  <PaperGridCard
+                    key={paper.id}
+                    paper={paper}
+                    isBookmarked={isBookmarked(paper.arxiv_id)}
+                    onToggleBookmark={toggleBookmark}
+                    currentList={getListForPaper(paper.arxiv_id)}
+                    listNames={getListNames()}
+                    onSelectList={addToList}
+                    isFocused={index === focusedIndex}
+                    isExpanded={expandedId === paper.id}
+                    onToggleExpand={() => setExpandedId(expandedId === paper.id ? null : paper.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64">
+                <p className="text-stone-400">No papers found</p>
+              </div>
+            )}
+
+            {/* Bottom pagination */}
+            {totalPages > 1 && !isLoading && (
+              <div className="flex justify-center gap-4 mt-6 pt-4 border-t border-stone-200 dark:border-stone-800">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 0}
+                  className="text-sm text-stone-500 hover:text-stone-700 disabled:opacity-30"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-stone-400">Page {currentPage + 1} of {totalPages}</span>
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages - 1}
+                  className="text-sm text-stone-500 hover:text-stone-700 disabled:opacity-30"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+
+          </div>
+        );
+      };
+
       return (
-        <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
-          {/* Sidebar */}
-          <FilterSidebar
-            filters={filters}
-            setFilters={setFilters}
-            allCategories={allCategories}
-            resultsCount={resultsCount}
+        <div className="min-h-screen bg-[#FAF7F2] dark:bg-stone-950 text-stone-900 dark:text-stone-100">
+          {/* Top Navigation */}
+          <TopNav
+            activePage={activePage}
+            setActivePage={setActivePage}
             darkMode={darkMode}
-            setDarkMode={setDarkMode}
-            bookmarkCount={bookmarks.size}
-            listNames={getListNames()}
-            getListCount={getListCount}
+            onToggleDarkMode={() => setThemePreference(darkMode ? 'light' : 'dark')}
           />
 
-          {/* Main Content */}
-          <main className="flex-1 p-5 md:p-8 min-w-0">
-            {/* We show pagination controls even if loading */}
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
-
-            {isLoading && (
-              <div className="flex justify-center items-center h-64">
-                <p className="text-lg text-gray-500">Loading papers...</p>
-              </div>
-            )}
-
-            {!isLoading && papers.length > 0 ? (
-              <>
-                {/* Paper List */}
-                <div className="grid grid-cols-1 gap-6 mt-6">
-                  {papers
-                    .filter(paper => !filters.onlyBookmarked || isBookmarked(paper.arxiv_id))
-                    .filter(paper => !filters.selectedList || getListForPaper(paper.arxiv_id) === filters.selectedList)
-                    .map(paper => (
-                      <PaperCard
-                        key={paper.id}
-                        paper={paper}
-                        isBookmarked={isBookmarked(paper.arxiv_id)}
-                        onToggleBookmark={toggleBookmark}
-                        currentList={getListForPaper(paper.arxiv_id)}
-                        listNames={getListNames()}
-                        onSelectList={addToList}
+          {/* Main Layout */}
+          <div className="flex">
+            {/* Sidebar - only on Papers page */}
+            {activePage === 'papers' && (
+              <div className="hidden lg:flex flex-shrink-0 h-[calc(100vh-3rem)] sticky top-12">
+                {/* Sidebar Content */}
+                <aside className={`overflow-y-auto bg-stone-100 dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800 transition-all duration-300 ${
+                  sidebarCollapsed ? 'w-0 p-0 overflow-hidden' : 'w-64 xl:w-72 p-4'
+                }`}>
+                  <div className="space-y-3 min-w-[240px]">
+                    {/* Search */}
+                    <SidebarSection title="Search" defaultOpen={true}>
+                      <input
+                        type="text"
+                        defaultValue={filters.search}
+                        onChange={e => {
+                          const value = e.target.value;
+                          setTimeout(() => setFilters(prev => ({ ...prev, search: value })), 300);
+                        }}
+                        placeholder="Search papers..."
+                        className="w-full px-2.5 py-1.5 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                       />
-                    ))}
-                </div>
+                      <input
+                        type="text"
+                        defaultValue={filters.author}
+                        onChange={e => {
+                          const value = e.target.value;
+                          setTimeout(() => setFilters(prev => ({ ...prev, author: value })), 300);
+                        }}
+                        placeholder="Filter by author..."
+                        className="w-full px-2.5 py-1.5 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mt-1.5"
+                      />
+                    </SidebarSection>
 
-                {/* Bottom Pagination Controls */}
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
-              </>
-            ) : null}
+                    {/* Sort */}
+                    <SidebarSection title="Sort" defaultOpen={true}>
+                      <div className="flex gap-1.5">
+                        {[{ label: 'Newest', value: 'newest' }, { label: 'Top', value: 'score' }].map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setFilters(prev => ({ ...prev, sort: opt.value }))}
+                            className={`flex-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                              filters.sort === opt.value
+                                ? 'bg-amber-700 text-white'
+                                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </SidebarSection>
 
-            {!isLoading && papers.length === 0 && (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center p-12 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                  <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">No Results Found</h3>
-                  <p className="mt-2 text-gray-500 dark:text-gray-400">
-                    Try clearing some filters or broadening your search.
-                  </p>
-                </div>
+                    {/* Filters */}
+                    <SidebarSection title="Filters" defaultOpen={true}>
+                      <div className="space-y-1.5">
+                        {[
+                          { key: 'onlySummarized', label: 'With Summary' },
+                          { key: 'onlyScored', label: 'With Score' },
+                          { key: 'onlyBookmarked', label: `Bookmarked (${bookmarks.size})` },
+                        ].map(({ key, label }) => (
+                          <label key={key} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={filters[key]}
+                              onChange={() => setFilters(prev => ({ ...prev, [key]: !prev[key] }))}
+                              className="w-3.5 h-3.5 rounded border-stone-400 text-amber-600 focus:ring-amber-500"
+                            />
+                            <span className="text-xs text-stone-700 dark:text-stone-300">{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </SidebarSection>
+
+                    {/* Min Score */}
+                    <SidebarSection title="Min Score" defaultOpen={false}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max="7"
+                          value={filters.minScore}
+                          onChange={e => setFilters(prev => ({ ...prev, minScore: parseInt(e.target.value, 10) }))}
+                          className="flex-1 h-1.5 bg-stone-300 dark:bg-stone-700 rounded-full appearance-none cursor-pointer accent-amber-600"
+                        />
+                        <span className="text-xs font-medium text-amber-700 dark:text-amber-500 w-6">{filters.minScore}/7</span>
+                      </div>
+                    </SidebarSection>
+
+                    {/* Categories */}
+                    <SidebarSection title="Topics" defaultOpen={false}>
+                      <div className="flex flex-wrap gap-1">
+                        {allCategories.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => {
+                              setFilters(prev => {
+                                const newCats = new Set(prev.selectedCategories);
+                                if (newCats.has(cat)) newCats.delete(cat);
+                                else newCats.add(cat);
+                                return { ...prev, selectedCategories: newCats };
+                              });
+                            }}
+                            className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                              filters.selectedCategories.has(cat)
+                                ? 'bg-amber-700 text-white'
+                                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </SidebarSection>
+
+                    {/* Reading Lists Filter */}
+                    <SidebarSection title="Reading Lists" defaultOpen={false}>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          onClick={() => setFilters(prev => ({ ...prev, selectedList: null }))}
+                          className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                            !filters.selectedList
+                              ? 'bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-900'
+                              : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                          }`}
+                        >
+                          All
+                        </button>
+                        {getListNames().map(name => (
+                          <button
+                            key={name}
+                            onClick={() => setFilters(prev => ({ ...prev, selectedList: prev.selectedList === name ? null : name }))}
+                            className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                              filters.selectedList === name
+                                ? 'bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-900'
+                                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                            }`}
+                          >
+                            {name} ({getListCount(name)})
+                          </button>
+                        ))}
+                      </div>
+                    </SidebarSection>
+
+                    {/* Export */}
+                    <div className="pt-3 border-t border-stone-200 dark:border-stone-700 space-y-1.5">
+                      <button
+                        onClick={() => {
+                          const queryString = buildQueryString(filters, 0).replace('&page=0', '').replace('page=0', '');
+                          window.location.href = `/api/export/csv?${queryString}`;
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md transition-colors"
+                      >
+                        Export CSV
+                      </button>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(window.location.href)}
+                        className="w-full px-2.5 py-1.5 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md transition-colors"
+                      >
+                        Share Link
+                      </button>
+                    </div>
+                  </div>
+                </aside>
+
+                {/* Collapse Toggle Button */}
+                <button
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="flex items-center justify-center w-6 h-12 my-auto -ml-px bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 border border-l-0 border-stone-300 dark:border-stone-700 rounded-r-lg transition-colors"
+                  title={sidebarCollapsed ? "Show filters" : "Hide filters"}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`text-stone-500 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`}
+                  >
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                </button>
               </div>
             )}
-          </main>
+
+            {/* Main Content Area */}
+            <main className="flex-1 min-w-0">
+              {activePage === 'papers' && (
+                <div className="max-w-[1600px] mx-auto">
+                  <PapersPageContent />
+                </div>
+              )}
+
+              {activePage === 'trends' && (
+                <TrendsPage papers={papers} />
+              )}
+
+              {activePage === 'lists' && (
+                <ReadingListsPage
+                  readingLists={readingLists}
+                  papers={papers}
+                  onRemoveFromList={removeFromList}
+                  isBookmarked={isBookmarked}
+                  toggleBookmark={toggleBookmark}
+                />
+              )}
+
+              {activePage === 'settings' && (
+                <SettingsPage
+                  themePreference={themePreference}
+                  setThemePreference={setThemePreference}
+                  defaultSort={defaultSort}
+                  setDefaultSort={setDefaultSort}
+                  defaultMinScore={defaultMinScore}
+                  setDefaultMinScore={setDefaultMinScore}
+                  keyboardEnabled={keyboardEnabled}
+                  setKeyboardEnabled={setKeyboardEnabled}
+                  onClearBookmarks={clearBookmarks}
+                  onClearLists={clearLists}
+                  bookmarkCount={bookmarks.size}
+                  bookmarks={bookmarks}
+                  readingLists={readingLists}
+                />
+              )}
+            </main>
+          </div>
+
+          {/* Mobile Filter Drawer */}
+          {mobileFiltersOpen && (
+            <div className="md:hidden fixed inset-0 z-50">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setMobileFiltersOpen(false)}
+              />
+              {/* Drawer */}
+              <aside className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-stone-100 dark:bg-stone-900 overflow-y-auto animate-slide-in">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-stone-900 dark:text-stone-100">Filters</h2>
+                    <button
+                      onClick={() => setMobileFiltersOpen(false)}
+                      className="p-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Search */}
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Search</label>
+                      <input
+                        type="text"
+                        defaultValue={filters.search}
+                        onChange={e => {
+                          const value = e.target.value;
+                          setTimeout(() => setFilters(prev => ({ ...prev, search: value })), 300);
+                        }}
+                        placeholder="Search papers..."
+                        className="w-full px-3 py-2.5 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg"
+                      />
+                    </div>
+
+                    {/* Sort */}
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Sort</label>
+                      <div className="flex gap-2">
+                        {[{ label: 'Newest', value: 'newest' }, { label: 'Top Score', value: 'score' }].map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setFilters(prev => ({ ...prev, sort: opt.value }))}
+                            className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                              filters.sort === opt.value
+                                ? 'bg-amber-700 text-white'
+                                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Min Score */}
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">
+                        Min Score: {filters.minScore}/7
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="7"
+                        value={filters.minScore}
+                        onChange={e => setFilters(prev => ({ ...prev, minScore: parseInt(e.target.value, 10) }))}
+                        className="w-full h-2 bg-stone-300 dark:bg-stone-700 rounded-full appearance-none cursor-pointer accent-amber-600"
+                      />
+                    </div>
+
+                    {/* Toggles */}
+                    <div className="space-y-3">
+                      <label className="flex items-center justify-between">
+                        <span className="text-sm text-stone-700 dark:text-stone-300">Only scored</span>
+                        <button
+                          onClick={() => setFilters(prev => ({ ...prev, onlyScored: !prev.onlyScored }))}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${
+                            filters.onlyScored ? 'bg-amber-600' : 'bg-stone-300 dark:bg-stone-600'
+                          }`}
+                        >
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                            filters.onlyScored ? 'left-6' : 'left-1'
+                          }`} />
+                        </button>
+                      </label>
+                      <label className="flex items-center justify-between">
+                        <span className="text-sm text-stone-700 dark:text-stone-300">Only bookmarked</span>
+                        <button
+                          onClick={() => setFilters(prev => ({ ...prev, onlyBookmarked: !prev.onlyBookmarked }))}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${
+                            filters.onlyBookmarked ? 'bg-amber-600' : 'bg-stone-300 dark:bg-stone-600'
+                          }`}
+                        >
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                            filters.onlyBookmarked ? 'left-6' : 'left-1'
+                          }`} />
+                        </button>
+                      </label>
+                    </div>
+
+                    {/* Categories */}
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Topics</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {allCategories.slice(0, 12).map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => {
+                              setFilters(prev => {
+                                const newCats = new Set(prev.selectedCategories);
+                                if (newCats.has(cat)) newCats.delete(cat);
+                                else newCats.add(cat);
+                                return { ...prev, selectedCategories: newCats };
+                              });
+                            }}
+                            className={`px-2.5 py-1.5 text-xs rounded-lg transition-colors ${
+                              filters.selectedCategories.has(cat)
+                                ? 'bg-amber-700 text-white'
+                                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Apply Button */}
+                    <button
+                      onClick={() => setMobileFiltersOpen(false)}
+                      className="w-full py-3 bg-amber-700 text-white font-medium rounded-lg mt-4"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {/* Mobile Bottom Navigation */}
+          <MobileBottomNav
+            activePage={activePage}
+            setActivePage={setActivePage}
+            onOpenFilters={() => setMobileFiltersOpen(true)}
+          />
+
+          {/* Bottom padding for mobile nav */}
+          <div className="md:hidden h-16" />
         </div>
       );
     }

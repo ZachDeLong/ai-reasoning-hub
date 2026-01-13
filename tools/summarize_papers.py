@@ -9,53 +9,38 @@ DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 BATCH_LIMIT = int(os.getenv("SUMMARY_BATCH", "10"))
 
 PROMPT_TEMPLATE = """
-You are a **Critical Technical Reviewer** for an AI research lab. Your audience consists of ML engineers and researchers who want deep technical insights, not marketing fluff.
+You are a technical reviewer writing for ML engineers who want substance, not fluff.
 
-**GOAL**: Deconstruct this paper into its core technical contributions.
+**STRICT RULES**:
+- NO filler phrases: "novel approach", "promising results", "state-of-the-art", "significant improvement"
+- NO vague claims without numbers
+- Be direct and specific
 
-**NEGATIVE CONSTRAINTS (STRICTLY ENFORCED)**:
-- NO generic praise ("promising results", "novel approach", "state-of-the-art").
-- NO vague summaries ("The authors propose a method to improve...").
-- NO marketing speak ("revolutionizes", "game-changer").
-- If a bullet point does not contain a specific number, metric, or concrete architectural detail, DELETE IT.
+**OUTPUT FORMAT** (use exact headers):
 
-**OUTPUT FORMAT (Markdown)**:
+# TLDR
+<One sentence (max 25 words) capturing the core contribution. Be specific about WHAT and HOW.>
 
-# The Big Idea
-<1 punchy sentence that captures the "aha!" moment. What is the core innovation?>
+# Core Idea
+<2-3 sentences: What's the key insight or mechanism? Why does it work?>
 
-# Insight
-<2-3 sentences explaining the *technical mechanism* that makes this work. How does it actually solve the problem? Be specific about architecture/loss/data.>
+# Method
+<2-4 bullets: Technical approach with specific details (architectures, algorithms, data). Each bullet must be concrete.>
 
-## Problem
-<1 bullet: What specific limitation or gap is being addressed?>
+# Results
+<2-4 bullets: Quantitative results only. Every bullet needs a number. Format: "X% on [benchmark], beating [baseline] by Y points">
 
-## Method
-<2-3 bullets: The technical approach. Mention specific architectures (e.g., Transformer, Mamba), algorithms (e.g., DPO, PPO), or data scales.>
-
-## Results
-<3-5 bullets. EVERY bullet must cite a specific number, percentage, or comparison from the paper. Example: "Achieves 85.2% on GSM8K, surpassing Llama-2-70B (83.1%).">
-
-## Limitations
-<1-3 bullets: What does it *fail* to do? What are the constraints? (e.g., "Requires 8x H100s", "Fails on long-context >32k")>
-
-## Why It Matters
-<2-3 bullets: Practical implications for engineers. Can we use this? Does it change how we train models?>
-
-## Notable Quotes
-<2-3 verbatim quotes from the paper that capture key insights or philosophy.>
+# Takeaway
+<1-2 sentences: Should practitioners care? What's the practical implication?>
 
 ---
 
 Title: {title}
 Authors: {authors}
-ArXiv ID/URL: {url}
+URL: {url}
 
 Abstract:
 {abstract}
-
-Optional context:
-{notes}
 """.strip()
 
 
@@ -132,19 +117,29 @@ def save_summary(conn, pid, summary_md, tldr, model, tokens):
 
 
 def extract_tldr(markdown: str) -> str:
+    """Extract TLDR from the dedicated # TLDR section."""
     lines = [l.strip() for l in markdown.splitlines()]
     for i, l in enumerate(lines):
-        low = l.lower().replace(";", "")
-        # Look for the new header format
-        if "the big idea" in low or "tldr" in low:
-            # next non-empty line is the TLDR
-            for j in range(i + 1, min(i + 6, len(lines))):
+        # Look for # TLDR header
+        if l.lower().replace(" ", "") in ["#tldr", "#tl;dr"]:
+            # Get next non-empty, non-header line
+            for j in range(i + 1, min(i + 5, len(lines))):
                 if lines[j] and not lines[j].startswith("#"):
-                    return lines[j]
-    # fallback: first non-empty line that isn't a header
+                    # Clean up any leading/trailing quotes or formatting
+                    tldr = lines[j].strip().strip('"').strip("'")
+                    return tldr[:300]
+
+    # Fallback: look for "Core Idea" section
+    for i, l in enumerate(lines):
+        if "core idea" in l.lower():
+            for j in range(i + 1, min(i + 5, len(lines))):
+                if lines[j] and not lines[j].startswith("#"):
+                    return lines[j][:200]
+
+    # Last resort: first non-header line
     for l in lines:
         if l and not l.startswith("#"):
-            return l[:280]
+            return l[:200]
     return ""
 
 
