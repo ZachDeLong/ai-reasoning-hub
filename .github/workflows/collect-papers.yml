@@ -1,0 +1,84 @@
+name: Collect and Process Papers
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC (10 PM PST, 1 AM EST)
+    - cron: '0 6 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  collect-papers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests openai google-generativeai anthropic
+
+      - name: Collect papers from HuggingFace
+        run: python tools/collect_weekly_papers.py
+
+      - name: Summarize new papers
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUMMARY_BATCH: "30"
+        run: python tools/summarize_papers.py
+
+      - name: Score new papers
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SCORE_BATCH: "30"
+        run: python tools/score_papers.py
+
+      - name: Categorize papers
+        run: |
+          python << 'EOF'
+          import sqlite3
+
+          conn = sqlite3.connect("data/papers.db")
+          categories = {
+              "Reasoning": ["reasoning", "chain-of-thought", "cot", "think", "logic"],
+              "Agents": ["agent", "agentic", "tool-use", "tool-integrated"],
+              "Multimodal": ["multimodal", "vision", "visual", "image", "video", "vlm", "vl-"],
+              "Code": ["code", "coding", "programming", "coder"],
+              "Benchmarks": ["benchmark", "evaluation", "eval", "dataset"],
+              "Memory": ["memory", "episodic", "context"],
+              "Search": ["search", "retrieval", "rag"],
+              "Alignment": ["alignment", "rlhf", "preference", "reward"],
+              "Efficiency": ["efficient", "compression", "lora", "adapter", "routing"],
+              "3D/Spatial": ["3d", "spatial", "depth", "orientation"],
+          }
+
+          cursor = conn.execute("SELECT id, title, reasoning_category FROM papers WHERE reasoning_category IN ('huggingface', 'Other', '')")
+          for pid, title, cat in cursor.fetchall():
+              title_lower = title.lower()
+              for new_cat, keywords in categories.items():
+                  if any(kw in title_lower for kw in keywords):
+                      conn.execute("UPDATE papers SET reasoning_category = ? WHERE id = ?", (new_cat, pid))
+                      break
+              else:
+                  conn.execute("UPDATE papers SET reasoning_category = 'Other' WHERE id = ?", (pid,))
+
+          conn.commit()
+          conn.close()
+          print("Categorization complete")
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/papers.db
+          git diff --staged --quiet || git commit -m "Auto-update: Collect and process papers $(date +'%Y-%m-%d')"
+          git push
