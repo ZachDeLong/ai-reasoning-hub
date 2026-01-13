@@ -1,11 +1,11 @@
-print("Debug: Script is starting...")
-
 import os
 import sqlite3
+import logging
 from datetime import datetime
 import requests
 
-print("DEBUG: Imports successful...")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 
@@ -20,8 +20,11 @@ def get_huggingface_papers():
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-    except Exception as exc:
-        print(f"❌ HuggingFace fetch failed: {exc}")
+    except requests.Timeout:
+        logger.error("HuggingFace API request timed out")
+        return papers
+    except requests.RequestException as exc:
+        logger.error(f"HuggingFace fetch failed: {exc}")
         return papers
 
     for item in data:
@@ -46,7 +49,7 @@ def get_huggingface_papers():
             }
         )
 
-    print(f"✓ Found {len(papers)} papers from HuggingFace Daily Papers")
+    logger.info(f"Found {len(papers)} papers from HuggingFace Daily Papers")
     return papers
 
 
@@ -93,22 +96,20 @@ def add_paper_to_db(conn, paper):
         )
         conn.commit()
         return True
-    except Exception as exc:
-        print(f"⚠️  Failed to add paper: {exc}")
+    except sqlite3.Error as exc:
+        logger.warning(f"Failed to add paper: {exc}")
         return False
 
 
 def main():
-    print("=" * 60, flush=True)
-    print("🔍 STARTING: Collecting papers from HuggingFace...", flush=True)
-    print("=" * 60, flush=True)
+    logger.info("=" * 60)
+    logger.info("STARTING: Collecting papers from HuggingFace...")
+    logger.info("=" * 60)
 
     papers = get_huggingface_papers()
-    
-    print(f"DEBUG: Received {len(papers)} papers", flush=True)
-    
+
     if not papers:
-        print("❌ No papers found. Exiting.", flush=True)
+        logger.warning("No papers found. Exiting.")
         return
 
     conn = sqlite3.connect(DB_PATH)
@@ -158,26 +159,24 @@ def main():
     for paper in papers:
         if paper_exists(conn, paper["arxiv_id"]):
             skipped_count += 1
-            print(f"⏭  Skipped duplicate: {paper['title'][:40]}...", flush=True)
+            logger.debug(f"Skipped duplicate: {paper['title'][:40]}...")
             continue
 
         if add_paper_to_db(conn, paper):
             new_count += 1
-            print(f"✓ Added: {paper['title'][:60]}...", flush=True)
+            logger.info(f"Added: {paper['title'][:60]}...")
 
     conn.close()
 
-    print(f"\n{'=' * 60}", flush=True)
-    print("✅ Collection complete!", flush=True)
-    print(f"   New papers added: {new_count}", flush=True)
-    print(f"   Duplicates skipped: {skipped_count}", flush=True)
-    print("\nNext: Run 'python tools/summarize_papers.py' to process new papers.", flush=True)
-    print(f"{'=' * 60}", flush=True)
+    logger.info("=" * 60)
+    logger.info("Collection complete!")
+    logger.info(f"New papers added: {new_count}")
+    logger.info(f"Duplicates skipped: {skipped_count}")
+    logger.info("Next: Run 'python tools/summarize_papers.py' to process new papers.")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":
-    print("DEBUG: Script starting...", flush=True)
     main()
-    print("DEBUG: Script finished.", flush=True)
 
 

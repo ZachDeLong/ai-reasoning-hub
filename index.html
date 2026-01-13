@@ -14,6 +14,8 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- 4. Load Marked.js to render Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- 5. Load DOMPurify to sanitize HTML and prevent XSS -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 
 
   <style>
@@ -208,7 +210,7 @@
           {isOpen && (
             <div className="pb-4 prose prose-sm dark:prose-invert max-w-none">
               {typeof children === 'string' ? (
-                <div dangerouslySetInnerHTML={{ __html: marked.parse(children) }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(children)) }} />
               ) : (
                 children
               )}

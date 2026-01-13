@@ -7,6 +7,7 @@ PROVIDER = os.getenv("SUMMARY_PROVIDER", "openai").lower()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 # Import OpenAI error types at module scope (safe even if provider != openai)
@@ -54,7 +55,7 @@ def call_llm(prompt: str):
 
     elif PROVIDER == "ollama":
         r = requests.post(
-            "http://localhost:11434/api/chat",
+            f"{OLLAMA_ENDPOINT}/api/chat",
             json={
                 "model": OLLAMA_MODEL,
                 "messages": [{"role": "user", "content": prompt}],

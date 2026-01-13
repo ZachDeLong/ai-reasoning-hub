@@ -3,6 +3,8 @@ requests
 tenacity
 openai
 google-generativeai
+anthropic
 Flask
 flask-cors
+flask-limiter
 gunicorn
