@@ -72,6 +72,15 @@
       background: #1C1917;
     }
 
+    /* Hidden scrollbar but still scrollable */
+    .scrollbar-hidden {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .scrollbar-hidden::-webkit-scrollbar {
+      display: none;
+    }
+
     /* Mobile drawer animation */
     @keyframes slideIn {
       from { transform: translateX(-100%); }
@@ -1296,7 +1305,7 @@
             {/* Top Authors */}
             <div className="bg-white dark:bg-stone-900 rounded-lg p-4 border border-stone-200 dark:border-stone-800">
               <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-3">Top Authors</h2>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hidden">
                 {stats.topAuthors.slice(0, 6).map(([author, count], i) => (
                   <div key={author} className="flex items-center gap-2">
                     <span className="text-xs text-stone-400 w-4">{i + 1}</span>
@@ -1316,7 +1325,7 @@
                 <span className="ml-2 text-xs font-normal text-stone-400">(5+)</span>
               </h2>
               {stats.hotPapers.length > 0 ? (
-                <div className="space-y-3 max-h-48 overflow-y-auto">
+                <div className="space-y-3 max-h-48 overflow-y-auto scrollbar-hidden">
                   {stats.hotPapers.map(paper => (
                     <a
                       key={paper.id}
@@ -2144,9 +2153,9 @@
             {/* Expanded content */}
             {isExpanded && (
               <div className="px-4 pb-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/30">
-                <div className="pt-4 grid md:grid-cols-2 gap-6">
+                <div className="pt-4 grid lg:grid-cols-2 gap-6">
                   {/* Left column - summary */}
-                  <div>
+                  <div className="min-w-0 overflow-hidden">
                     {paper.summary_md && (
                       <div className="prose prose-sm prose-stone dark:prose-invert max-w-none">
                         <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(paper.summary_md)) }} />
@@ -2168,12 +2177,10 @@
                   </div>
                   {/* Right column - PDF */}
                   {paper.arxiv_id && (
-                    <div>
+                    <div className="min-w-0 overflow-hidden">
                       <iframe
                         src={`/api/pdf/${paper.arxiv_id}`}
-                        width="100%"
-                        height="500"
-                        className="border border-stone-200 dark:border-stone-700 rounded"
+                        className="w-full h-[85vh] min-h-[800px] border border-stone-200 dark:border-stone-700 rounded"
                         title={`${paper.title} PDF`}
                       />
                     </div>
