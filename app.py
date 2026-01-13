@@ -1,7 +1,9 @@
 import os
 import re
+import csv
 import sqlite3
 import logging
+from io import StringIO
 from math import ceil
 from contextlib import contextmanager
 from typing import Optional
@@ -56,24 +58,30 @@ ARXIV_ID_PATTERN = re.compile(r'^\d{4}\.\d{4,5}(v\d+)?$')
 
 def load_rows(
     search: str = "",
+    author: str = "",
     cats: Optional[list[str]] = None,
     only_summarized: bool = False,
     min_score: int = 0,
     only_scored: bool = False,
     sort: str = "newest",
-    page: int = 0
+    page: int = 0,
+    date_from: str = "",
+    date_to: str = ""
 ) -> dict:
     """
     Load papers from database with filtering, sorting, and pagination.
 
     Args:
         search: Search term for title/abstract/keywords
+        author: Author name filter
         cats: List of category filters
         only_summarized: Only show papers with summaries
         min_score: Minimum excitement score (0-7)
         only_scored: Only show scored papers
         sort: Sort order ('newest' or 'score')
         page: Page number (0-indexed)
+        date_from: Filter papers from this date (YYYY-MM-DD)
+        date_to: Filter papers until this date (YYYY-MM-DD)
 
     Returns:
         Dict with 'papers', 'total_pages', and 'results_count'
@@ -97,6 +105,19 @@ def load_rows(
         like = f"%{search}%"
         sql += " AND (title LIKE ? OR abstract LIKE ? OR keywords LIKE ? OR tldr LIKE ? OR summary_md LIKE ?)"
         params.extend([like, like, like, like, like])
+
+    # Author filter
+    if author:
+        sql += " AND authors LIKE ?"
+        params.append(f"%{author}%")
+
+    # Date range filter
+    if date_from:
+        sql += " AND date >= ?"
+        params.append(date_from)
+    if date_to:
+        sql += " AND date <= ?"
+        params.append(date_to)
 
     # Toggles
     if only_summarized:
@@ -162,23 +183,114 @@ def get_papers():
     """Fetch papers with filtering and pagination."""
     # Parse and validate query parameters
     search = request.args.get('search', '')[:200]  # Limit search length
+    author = request.args.get('author', '')[:100]  # Limit author length
     cats = request.args.getlist('category')[:20]  # Limit categories
     only_summarized = request.args.get('onlySummarized', 'false') == 'true'
     min_score = max(0, min(7, request.args.get('minScore', 0, type=int)))  # Clamp 0-7
     only_scored = request.args.get('onlyScored', 'false') == 'true'
     sort = request.args.get('sort', 'score')
     page = max(0, request.args.get('page', 0, type=int))  # No negative pages
+    date_from = request.args.get('dateFrom', '')[:10]  # YYYY-MM-DD format
+    date_to = request.args.get('dateTo', '')[:10]
 
     data = load_rows(
         search=search,
+        author=author,
         cats=cats,
         only_summarized=only_summarized,
         min_score=min_score,
         only_scored=only_scored,
         sort=sort,
-        page=page
+        page=page,
+        date_from=date_from,
+        date_to=date_to
     )
     return jsonify(data)
+
+@app.route('/api/export/csv')
+@limiter.limit("20 per hour")
+def export_csv():
+    """Export filtered papers as CSV."""
+    # Parse filters (same as get_papers)
+    search = request.args.get('search', '')[:200]
+    author = request.args.get('author', '')[:100]
+    cats = request.args.getlist('category')[:20]
+    only_summarized = request.args.get('onlySummarized', 'false') == 'true'
+    min_score = max(0, min(7, request.args.get('minScore', 0, type=int)))
+    only_scored = request.args.get('onlyScored', 'false') == 'true'
+    sort = request.args.get('sort', 'score')
+
+    # Get all results without pagination (limit to 1000 for safety)
+    data = load_rows(
+        search=search, author=author, cats=cats,
+        only_summarized=only_summarized, min_score=min_score,
+        only_scored=only_scored, sort=sort, page=0
+    )
+
+    # Create CSV
+    output = StringIO()
+    writer = csv.DictWriter(output, fieldnames=[
+        'arxiv_id', 'title', 'authors', 'date', 'reasoning_category',
+        'tldr', 'excitement_score', 'arxiv_link'
+    ])
+    writer.writeheader()
+    for paper in data['papers']:
+        writer.writerow({
+            'arxiv_id': paper.get('arxiv_id', ''),
+            'title': paper.get('title', ''),
+            'authors': paper.get('authors', ''),
+            'date': paper.get('date', ''),
+            'reasoning_category': paper.get('reasoning_category', ''),
+            'tldr': paper.get('tldr', ''),
+            'excitement_score': paper.get('excitement_score', 0),
+            'arxiv_link': paper.get('arxiv_link', '')
+        })
+
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=papers_export.csv'
+    return response
+
+@app.route('/api/bibtex/<arxiv_id>')
+@limiter.limit("60 per minute")
+def get_bibtex(arxiv_id: str) -> Response:
+    """Generate BibTeX entry for a paper."""
+    if not ARXIV_ID_PATTERN.match(arxiv_id):
+        return jsonify({"error": "Invalid arxiv ID format"}), 400
+
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT arxiv_id, title, authors, date FROM papers WHERE arxiv_id = ?",
+            (arxiv_id,)
+        ).fetchone()
+
+        if not row:
+            return jsonify({"error": "Paper not found"}), 404
+
+        paper = dict(row)
+
+        # Parse authors: "John Doe, Jane Smith, et al." -> "Doe, John and Smith, Jane"
+        authors_raw = paper.get('authors', '') or ''
+        authors_list = [a.strip() for a in authors_raw.replace(', et al.', '').split(',') if a.strip()]
+        bibtex_authors = ' and '.join(authors_list)
+
+        # Extract year from date
+        year = paper.get('date', '')[:4] if paper.get('date') else 'unknown'
+
+        # Create cite key
+        first_author = authors_list[0].split()[-1].lower() if authors_list else 'unknown'
+        cite_key = f"{first_author}{year}_{arxiv_id.replace('.', '')}"
+
+        bibtex = f"""@article{{{cite_key},
+  title = {{{paper.get('title', '')}}},
+  author = {{{bibtex_authors}}},
+  year = {{{year}}},
+  eprint = {{{arxiv_id}}},
+  archivePrefix = {{arXiv}},
+  primaryClass = {{cs.AI}},
+  url = {{https://arxiv.org/abs/{arxiv_id}}}
+}}"""
+
+        return Response(bibtex, mimetype='text/plain')
 
 @app.route('/api/categories')
 @limiter.limit("60 per minute")

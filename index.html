@@ -286,9 +286,99 @@
 
 
     /**
+     * Reading list dropdown component
+     */
+    const ReadingListDropdown = ({ currentList, listNames, onSelectList }) => {
+      const [isOpen, setIsOpen] = useState(false);
+
+      return (
+        <div className="relative">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
+              currentList
+                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            {currentList || 'Add to list'}
+          </button>
+          {isOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+              <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
+                {listNames.map(name => (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      onSelectList(name === currentList ? null : name);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg ${
+                      name === currentList ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                ))}
+                {currentList && (
+                  <>
+                    <div className="border-t border-gray-200 dark:border-gray-700" />
+                    <button
+                      onClick={() => {
+                        onSelectList(null);
+                        setIsOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg"
+                    >
+                      Remove from list
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    };
+
+    /**
+     * Bookmark star icon component
+     */
+    const BookmarkStar = ({ isBookmarked, onClick }) => (
+      <button
+        onClick={onClick}
+        className={`p-1.5 rounded-full transition-all ${
+          isBookmarked
+            ? 'text-yellow-500 hover:text-yellow-600'
+            : 'text-gray-400 hover:text-yellow-500'
+        }`}
+        title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill={isBookmarked ? 'currentColor' : 'none'}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+      </button>
+    );
+
+    /**
      * The main component for displaying a single paper card
      */
-    const PaperCard = ({ paper }) => {
+    const PaperCard = ({ paper, isBookmarked, onToggleBookmark, currentList, listNames, onSelectList }) => {
       const [showPdf, setShowPdf] = useState(false);
 
       const score = paper.excitement_score || 0;
@@ -299,10 +389,23 @@
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl border border-gray-200 dark:border-gray-700">
           <div className="p-5 flex flex-col md:flex-row gap-5">
 
-            {/* Left Column: Score & Breakdown */}
+            {/* Left Column: Score, Breakdown & Bookmark */}
             <div className="flex flex-col items-center md:w-32 flex-shrink-0 space-y-4">
               <ScoreDonut score={score} />
               {score > 0 && <BreakdownVisual breakdownString={paper.score_breakdown} />}
+              {paper.arxiv_id && (
+                <div className="flex flex-col items-center gap-2">
+                  <BookmarkStar
+                    isBookmarked={isBookmarked}
+                    onClick={() => onToggleBookmark(paper.arxiv_id)}
+                  />
+                  <ReadingListDropdown
+                    currentList={currentList}
+                    listNames={listNames}
+                    onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Right Column: Content */}
@@ -320,13 +423,33 @@
                 {paper.authors}
               </p>
 
-              {/* Meta: Date & Category */}
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-2">
+              {/* Meta: Date & Category & BibTeX */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-2">
                 <span>{paper.date}</span>
                 {paper.reasoning_category && (
                   <React.Fragment>
                     <span>•</span>
                     <span className="font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">{paper.reasoning_category}</span>
+                  </React.Fragment>
+                )}
+                {paper.arxiv_id && (
+                  <React.Fragment>
+                    <span>•</span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const resp = await fetch(`/api/bibtex/${paper.arxiv_id}`);
+                          const bibtex = await resp.text();
+                          await navigator.clipboard.writeText(bibtex);
+                          alert('BibTeX copied to clipboard!');
+                        } catch (e) {
+                          console.error('Failed to copy BibTeX:', e);
+                        }
+                      }}
+                      className="font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors cursor-pointer"
+                    >
+                      Copy BibTeX
+                    </button>
                   </React.Fragment>
                 )}
               </div>
@@ -383,7 +506,7 @@
     /**
      * The sticky filter sidebar
      */
-    const FilterSidebar = ({ filters, setFilters, allCategories, resultsCount }) => {
+    const FilterSidebar = ({ filters, setFilters, allCategories, resultsCount, darkMode, setDarkMode, bookmarkCount, listNames, getListCount }) => {
 
       const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -420,12 +543,26 @@
         []
       );
 
+      const debouncedAuthorChange = useCallback(
+        debounce((value) => handleFilterChange('author', value), 300),
+        []
+      );
+
 
       return (
         <div className="w-full md:w-80 lg:w-96 flex-shrink-0 md:h-screen md:sticky top-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-5">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reasoning Hub</h2>
-            <a href="/about" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">About</a>
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reasoning Hub</h2>
+              <a href="/about" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">About</a>
+            </div>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-6">
             Showing {resultsCount} results
@@ -443,8 +580,6 @@
                 <input
                   type="text"
                   id="search"
-                  // We use defaultValue for an uncontrolled component that is
-                  // synced via the debounced handler
                   defaultValue={filters.search}
                   onChange={e => debouncedSearchChange(e.target.value)}
                   placeholder="Search title, tldr, summary..."
@@ -453,6 +588,38 @@
               </div>
             </div>
 
+            {/* Author Search */}
+            <div>
+              <label htmlFor="author" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Author</label>
+              <input
+                type="text"
+                id="author"
+                defaultValue={filters.author}
+                onChange={e => debouncedAuthorChange(e.target.value)}
+                placeholder="Search by author name..."
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Date Range */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Date Range</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={e => handleFilterChange('dateFrom', e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={e => handleFilterChange('dateTo', e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
 
             {/* Sort */}
             <div>
@@ -479,6 +646,11 @@
                 label="Scored Only"
                 isChecked={filters.onlyScored}
                 onChange={() => handleFilterChange('onlyScored', !filters.onlyScored)}
+              />
+              <CustomSwitch
+                label={`Bookmarked Only (${bookmarkCount})`}
+                isChecked={filters.onlyBookmarked}
+                onChange={() => handleFilterChange('onlyBookmarked', !filters.onlyBookmarked)}
               />
             </div>
 
@@ -523,6 +695,60 @@
                 ))}
               </div>
             </div>
+
+            {/* Reading Lists */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Reading Lists</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleFilterChange('selectedList', null)}
+                  className={`px-3 py-1 text-sm font-medium rounded-full transition-all
+                    ${!filters.selectedList
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }
+                  `}
+                >
+                  All
+                </button>
+                {listNames.map(name => (
+                  <button
+                    key={name}
+                    onClick={() => handleFilterChange('selectedList', filters.selectedList === name ? null : name)}
+                    className={`px-3 py-1 text-sm font-medium rounded-full transition-all
+                      ${filters.selectedList === name
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }
+                    `}
+                  >
+                    {name} ({getListCount(name)})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Export & Share Buttons */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+              <button
+                onClick={() => {
+                  const queryString = buildQueryString(filters, 0).replace('&page=0', '').replace('page=0', '');
+                  window.location.href = `/api/export/csv?${queryString}`;
+                }}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
+              >
+                Export to CSV ({resultsCount} papers)
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('Link copied to clipboard!');
+                }}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Copy Shareable Link
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -565,12 +791,105 @@
 
 
     /**
+     * Custom hook for managing bookmarks in localStorage
+     */
+    const useBookmarks = () => {
+      const [bookmarks, setBookmarks] = useState(() => {
+        const saved = localStorage.getItem('paper_bookmarks');
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      });
+
+      useEffect(() => {
+        localStorage.setItem('paper_bookmarks', JSON.stringify([...bookmarks]));
+      }, [bookmarks]);
+
+      const toggleBookmark = (arxivId) => {
+        setBookmarks(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(arxivId)) {
+            newSet.delete(arxivId);
+          } else {
+            newSet.add(arxivId);
+          }
+          return newSet;
+        });
+      };
+
+      const isBookmarked = (arxivId) => bookmarks.has(arxivId);
+
+      return { bookmarks, toggleBookmark, isBookmarked };
+    };
+
+    /**
+     * Custom hook for managing reading lists in localStorage
+     */
+    const DEFAULT_LISTS = ['To Read', 'Reading', 'Completed'];
+
+    const useReadingLists = () => {
+      const [readingLists, setReadingLists] = useState(() => {
+        const saved = localStorage.getItem('reading_lists');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+        // Default structure: { listName: [arxivId1, arxivId2, ...] }
+        return DEFAULT_LISTS.reduce((acc, name) => {
+          acc[name] = [];
+          return acc;
+        }, {});
+      });
+
+      useEffect(() => {
+        localStorage.setItem('reading_lists', JSON.stringify(readingLists));
+      }, [readingLists]);
+
+      const addToList = (arxivId, listName) => {
+        setReadingLists(prev => {
+          const updated = { ...prev };
+          // Remove from all lists first
+          Object.keys(updated).forEach(list => {
+            updated[list] = updated[list].filter(id => id !== arxivId);
+          });
+          // Add to the selected list
+          if (listName && updated[listName]) {
+            updated[listName] = [...updated[listName], arxivId];
+          }
+          return updated;
+        });
+      };
+
+      const removeFromList = (arxivId, listName) => {
+        setReadingLists(prev => ({
+          ...prev,
+          [listName]: prev[listName].filter(id => id !== arxivId)
+        }));
+      };
+
+      const getListForPaper = (arxivId) => {
+        for (const [listName, papers] of Object.entries(readingLists)) {
+          if (papers.includes(arxivId)) {
+            return listName;
+          }
+        }
+        return null;
+      };
+
+      const getListNames = () => Object.keys(readingLists);
+
+      const getListCount = (listName) => readingLists[listName]?.length || 0;
+
+      return { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount };
+    };
+
+    /**
      * Helper to build query strings
      */
     const buildQueryString = (filters, page) => {
       const params = new URLSearchParams();
 
       if (filters.search) params.append('search', filters.search);
+      if (filters.author) params.append('author', filters.author);
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+      if (filters.dateTo) params.append('dateTo', filters.dateTo);
       filters.selectedCategories.forEach(cat => {
         params.append('category', cat);
       });
@@ -590,18 +909,62 @@
      * Main App Component
      */
     function App() {
-      const [filters, setFilters] = useState({
-        search: "",
-        selectedCategories: new Set(),
-        onlySummarized: false,
-        minScore: 0,
-        onlyScored: false,
-        sort: "score",
+      // --- Dark Mode with localStorage persistence ---
+      const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('darkMode');
+        if (saved !== null) return JSON.parse(saved);
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
       });
 
-      const [currentPage, setCurrentPage] = useState(0);
+      // Apply dark mode class to document
+      useEffect(() => {
+        if (darkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('darkMode', JSON.stringify(darkMode));
+      }, [darkMode]);
 
-      // --- New State for Fetched Data ---
+      // Bookmarks hook
+      const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks();
+
+      // Reading lists hook
+      const { readingLists, addToList, getListForPaper, getListNames, getListCount } = useReadingLists();
+
+      // Parse initial filters from URL
+      const getInitialFilters = () => {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          search: params.get('search') || '',
+          author: params.get('author') || '',
+          dateFrom: params.get('dateFrom') || '',
+          dateTo: params.get('dateTo') || '',
+          selectedCategories: new Set(params.getAll('category')),
+          onlySummarized: params.get('onlySummarized') === 'true',
+          minScore: parseInt(params.get('minScore') || '0', 10),
+          onlyScored: params.get('onlyScored') === 'true',
+          onlyBookmarked: false,  // Local only, not in URL
+          selectedList: null,     // Reading list filter, local only
+          sort: params.get('sort') || 'score',
+        };
+      };
+
+      const [filters, setFilters] = useState(getInitialFilters);
+
+      const [currentPage, setCurrentPage] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return parseInt(params.get('page') || '0', 10);
+      });
+
+      // Update URL when filters or page change
+      useEffect(() => {
+        const queryString = buildQueryString(filters, currentPage);
+        const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+        window.history.replaceState(null, '', newUrl);
+      }, [filters, currentPage]);
+
+      // --- State for Fetched Data ---
       const [papers, setPapers] = useState([]);
       const [allCategories, setAllCategories] = useState([]);
       const [totalPages, setTotalPages] = useState(1);
@@ -679,6 +1042,11 @@
             setFilters={setFilters}
             allCategories={allCategories}
             resultsCount={resultsCount}
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            bookmarkCount={bookmarks.size}
+            listNames={getListNames()}
+            getListCount={getListCount}
           />
 
           {/* Main Content */}
@@ -700,9 +1068,20 @@
               <>
                 {/* Paper List */}
                 <div className="grid grid-cols-1 gap-6 mt-6">
-                  {papers.map(paper => (
-                    <PaperCard key={paper.id} paper={paper} />
-                  ))}
+                  {papers
+                    .filter(paper => !filters.onlyBookmarked || isBookmarked(paper.arxiv_id))
+                    .filter(paper => !filters.selectedList || getListForPaper(paper.arxiv_id) === filters.selectedList)
+                    .map(paper => (
+                      <PaperCard
+                        key={paper.id}
+                        paper={paper}
+                        isBookmarked={isBookmarked(paper.arxiv_id)}
+                        onToggleBookmark={toggleBookmark}
+                        currentList={getListForPaper(paper.arxiv_id)}
+                        listNames={getListNames()}
+                        onSelectList={addToList}
+                      />
+                    ))}
                 </div>
 
                 {/* Bottom Pagination Controls */}

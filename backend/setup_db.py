@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS papers (
 c.execute("CREATE INDEX IF NOT EXISTS idx_papers_date ON papers(date)")
 c.execute("CREATE INDEX IF NOT EXISTS idx_papers_category ON papers(reasoning_category)")
 
+# Additional performance indexes
+c.execute("CREATE INDEX IF NOT EXISTS idx_papers_date_desc ON papers(date DESC)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_papers_authors ON papers(authors)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_papers_scored_date ON papers(excitement_score DESC, date DESC)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_papers_arxiv_id ON papers(arxiv_id)")
+
 conn.commit()
 conn.close()
 print("Database initialized at", DB_PATH)
