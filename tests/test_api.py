@@ -118,6 +118,36 @@ class TestBibtexEndpoint:
         assert response.status_code != 400
 
 
+class TestTrendsEndpoint:
+    """Tests for /api/trends endpoint."""
+
+    def test_trends_returns_json(self, client):
+        """GET /api/trends should return JSON."""
+        response = client.get('/api/trends')
+        assert response.status_code == 200
+        assert response.content_type == 'application/json'
+
+    def test_trends_has_expected_structure(self, client):
+        """Response should have growth, categories, avg_scores, weeks."""
+        response = client.get('/api/trends')
+        data = response.get_json()
+
+        assert 'weekly' in data
+        assert 'categories' in data
+        assert 'growth' in data
+        assert 'avg_scores' in data
+        assert 'weeks' in data
+
+    def test_growth_values_are_percentages(self, client):
+        """Growth values should be numeric percentages."""
+        response = client.get('/api/trends')
+        data = response.get_json()
+
+        if data['growth']:
+            for category, growth in data['growth'].items():
+                assert isinstance(growth, (int, float))
+
+
 class TestExportEndpoint:
     """Tests for /api/export/csv endpoint."""
 

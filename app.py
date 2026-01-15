@@ -234,6 +234,84 @@ def get_papers_stats():
         """).fetchall()
         return jsonify({"papers": [dict(r) for r in rows]})
 
+@app.route('/api/trends')
+@limiter.limit(RATE_LIMIT_CATEGORIES)
+def get_trends():
+    """Get category trends over time for visualization."""
+    with get_db_connection() as conn:
+        # Get papers with dates and categories
+        rows = conn.execute("""
+            SELECT
+                date,
+                reasoning_category,
+                excitement_score
+            FROM papers
+            WHERE date IS NOT NULL
+              AND reasoning_category IS NOT NULL
+              AND reasoning_category != ''
+            ORDER BY date
+        """).fetchall()
+
+        if not rows:
+            return jsonify({"weekly": {}, "categories": {}, "growth": {}})
+
+        # Group by week and category
+        from collections import defaultdict
+        weekly_counts = defaultdict(lambda: defaultdict(int))
+        category_scores = defaultdict(list)
+        category_total = defaultdict(int)
+
+        for row in rows:
+            date_str = row['date'][:10] if row['date'] else None
+            if not date_str:
+                continue
+
+            # Get ISO week (YYYY-WXX format)
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(date_str)
+                week_key = f"{dt.isocalendar()[0]}-W{dt.isocalendar()[1]:02d}"
+            except:
+                continue
+
+            cat = row['reasoning_category']
+            weekly_counts[week_key][cat] += 1
+            category_total[cat] += 1
+            if row['excitement_score']:
+                category_scores[cat].append(row['excitement_score'])
+
+        # Calculate average scores per category
+        category_avg_scores = {
+            cat: round(sum(scores) / len(scores), 1) if scores else 0
+            for cat, scores in category_scores.items()
+        }
+
+        # Calculate growth (compare last 2 weeks vs previous 2 weeks)
+        sorted_weeks = sorted(weekly_counts.keys())
+        growth = {}
+        if len(sorted_weeks) >= 2:
+            recent_weeks = sorted_weeks[-2:] if len(sorted_weeks) >= 2 else sorted_weeks[-1:]
+            earlier_weeks = sorted_weeks[:-2] if len(sorted_weeks) > 2 else []
+
+            for cat in category_total.keys():
+                recent_count = sum(weekly_counts[w].get(cat, 0) for w in recent_weeks)
+                earlier_count = sum(weekly_counts[w].get(cat, 0) for w in earlier_weeks) if earlier_weeks else 0
+
+                if earlier_count > 0:
+                    growth[cat] = round((recent_count - earlier_count) / earlier_count * 100)
+                elif recent_count > 0:
+                    growth[cat] = 100  # New category
+                else:
+                    growth[cat] = 0
+
+        return jsonify({
+            "weekly": {week: dict(cats) for week, cats in weekly_counts.items()},
+            "categories": dict(category_total),
+            "avg_scores": category_avg_scores,
+            "growth": growth,
+            "weeks": sorted_weeks
+        })
+
 @app.route('/api/export/csv')
 @limiter.limit(RATE_LIMIT_EXPORT)
 def export_csv():
