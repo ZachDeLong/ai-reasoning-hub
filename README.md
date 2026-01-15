@@ -71,11 +71,7 @@ python tools/score_papers.py
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FLASK_DEBUG` | `false` | Enable Flask debug mode |
-| `SUMMARY_PROVIDER` | `openai` | LLM provider: `openai`, `anthropic`, or `ollama` |
 | `OPENAI_MODEL` | `gpt-4o` | OpenAI model for summaries |
-| `ANTHROPIC_MODEL` | `claude-3-5-sonnet-latest` | Anthropic model |
-| `OLLAMA_MODEL` | `llama3.1:8b` | Ollama model |
-| `OLLAMA_ENDPOINT` | `http://localhost:11434` | Ollama API endpoint |
 | `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model for triage |
 | `PROJECTS_DB` | `data/papers.db` | SQLite database path |
 | `SUMMARY_BATCH` | `10` | Papers per batch |
