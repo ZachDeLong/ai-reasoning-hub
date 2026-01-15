@@ -1,9 +1,7 @@
 # tools/score_papers.py
-import os, sqlite3, datetime, time, random, re, json, argparse, math
+import os, sqlite3, datetime, re, json, argparse
 from llm_summary import call_llm
-
-DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
-DEFAULT_BATCH = int(os.getenv("SCORE_BATCH", "10"))
+from config import DB_PATH, SCORE_BATCH_SIZE, SCORE_RANGES, SUMMARY_TRUNCATE_LENGTH, MIN_REASONING_LENGTH
 
 SCORING_PROMPT = """
 Score this AI research paper on a 0-7 scale.
@@ -86,8 +84,8 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Score papers with an excitement metric (Tier S-D).")
     ap.add_argument("--force", action="store_true",
                     help="Rescore even if a score already exists.")
-    ap.add_argument("--limit", type=int, default=DEFAULT_BATCH,
-                    help=f"Max papers to score this run (default: {DEFAULT_BATCH}).")
+    ap.add_argument("--limit", type=int, default=SCORE_BATCH_SIZE,
+                    help=f"Max papers to score this run (default: {SCORE_BATCH_SIZE}).")
     ap.add_argument("ids", nargs="*", type=int,
                     help="Optional paper IDs to score explicitly.")
     return ap.parse_args()
@@ -137,8 +135,40 @@ def build_prompt(row: dict) -> str:
     # Cap inputs to keep cost and drift low
     tl = (row.get("tldr") or "").strip()
     sm = (row.get("summary_md") or "").strip()
-    sm = sm[:1500]  # ~1–2k chars is plenty for scoring
+    sm = sm[:SUMMARY_TRUNCATE_LENGTH]
     return SCORING_PROMPT.format(title=row["title"], tldr=tl, summary_md=sm)
+
+
+def extract_first_json_object(text: str) -> str:
+    """Extract the first balanced JSON object from text using bracket matching."""
+    start = text.find('{')
+    if start == -1:
+        raise ValueError("No JSON object found in response")
+
+    depth = 0
+    in_string = False
+    escape_next = False
+
+    for i, char in enumerate(text[start:], start):
+        if escape_next:
+            escape_next = False
+            continue
+        if char == '\\' and in_string:
+            escape_next = True
+            continue
+        if char == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == '{':
+            depth += 1
+        elif char == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i+1]
+
+    raise ValueError("No complete JSON object found (unbalanced braces)")
 
 
 def parse_score_response(text: str) -> dict:
@@ -151,11 +181,9 @@ def parse_score_response(text: str) -> dict:
     try:
         data = json.loads(s)
     except Exception:
-        # Fallback: first {...} block anywhere
-        m = re.search(r"\{.*\}", text, re.S)
-        if not m:
-            raise ValueError("No JSON object found in response")
-        data = json.loads(m.group(0))
+        # Fallback: extract first complete JSON object using bracket matching
+        json_str = extract_first_json_object(text)
+        data = json.loads(json_str)
 
     # Normalize field name (support both old and new)
     if "accessibility" in data and "access" not in data:
@@ -163,15 +191,10 @@ def parse_score_response(text: str) -> dict:
 
     # Validate ranges & fields
     def in_range(v, lo, hi): return isinstance(v, int) and lo <= v <= hi
-    if not in_range(data.get("novelty"), 0, 3):
-        raise ValueError(f"novelty out of range: {data.get('novelty')}")
-    if not in_range(data.get("utility"), 0, 1):
-        raise ValueError(f"utility out of range: {data.get('utility')}")
-    if not in_range(data.get("results"), 0, 2):
-        raise ValueError(f"results out of range: {data.get('results')}")
-    if not in_range(data.get("access"), 0, 1):
-        raise ValueError(f"access out of range: {data.get('access')}")
-    if not isinstance(data.get("reasoning"), str) or len(data["reasoning"].strip()) < 8:
+    for field, (lo, hi) in SCORE_RANGES.items():
+        if not in_range(data.get(field), lo, hi):
+            raise ValueError(f"{field} out of range: {data.get(field)}")
+    if not isinstance(data.get("reasoning"), str) or len(data["reasoning"].strip()) < MIN_REASONING_LENGTH:
         raise ValueError("missing/short reasoning")
     return data
 

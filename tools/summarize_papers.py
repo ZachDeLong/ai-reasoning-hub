@@ -4,9 +4,7 @@ import os
 import sqlite3
 
 from llm_summary import call_llm, triage_paper
-
-DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
-BATCH_LIMIT = int(os.getenv("SUMMARY_BATCH", "10"))
+from config import DB_PATH, SUMMARY_BATCH_SIZE
 
 PROMPT_TEMPLATE = """
 You are a technical reviewer writing for ML engineers who want substance, not fluff.
@@ -73,7 +71,7 @@ def fetch_papers(conn, ids=None, force=False):
         placeholders = ",".join("?" for _ in ids)
         cur = conn.execute(base_query + f" WHERE id IN ({placeholders})", ids)
     elif force:
-        cur = conn.execute(base_query + " ORDER BY id DESC LIMIT ?", (BATCH_LIMIT,))
+        cur = conn.execute(base_query + " ORDER BY id DESC LIMIT ?", (SUMMARY_BATCH_SIZE,))
     else:
         cur = conn.execute(
             base_query
@@ -83,7 +81,7 @@ def fetch_papers(conn, ids=None, force=False):
             ORDER BY id DESC
             LIMIT ?
             """,
-            (BATCH_LIMIT,),
+            (SUMMARY_BATCH_SIZE,),
         )
 
     cols = [c[0] for c in cur.description]

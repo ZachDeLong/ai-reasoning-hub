@@ -3,6 +3,7 @@ import re
 import csv
 import sqlite3
 import logging
+import sys
 from io import StringIO
 from math import ceil
 from contextlib import contextmanager
@@ -12,6 +13,17 @@ import requests
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+
+# Add tools directory to path for config import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tools'))
+from config import (
+    DB_PATH, BREAKDOWN_MAX, CARDS_PER_PAGE, SERVER_PORT, FLASK_DEBUG,
+    RATE_LIMIT_DEFAULT, RATE_LIMIT_PAPERS, RATE_LIMIT_CATEGORIES,
+    RATE_LIMIT_EXPORT, RATE_LIMIT_PAPER_DETAIL, RATE_LIMIT_PDF_PROXY,
+    RATE_LIMIT_AUTHOR_COUNTS, REQUEST_TIMEOUT, SEARCH_MAX_LENGTH,
+    AUTHOR_MAX_LENGTH, MAX_CATEGORIES_FILTER, EXPORT_MAX_PAPERS,
+    AUTHOR_COUNT_LIMIT, SCORE_MIN, SCORE_MAX
+)
 
 # Configure logging
 logging.basicConfig(
@@ -27,13 +39,9 @@ CORS(app)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=RATE_LIMIT_DEFAULT,
     storage_uri="memory://"
 )
-
-DB_PATH = os.path.join("data", "papers.db")
-BREAKDOWN_MAX = {"Novelty": 3, "Utility": 1, "Results": 2, "Access": 1}
-CARDS_PER_PAGE = 15
 
 # --- Database helpers ---
 
@@ -178,15 +186,15 @@ def load_rows(
 # --- API Endpoints ---
 
 @app.route('/api/papers')
-@limiter.limit("100 per minute")
+@limiter.limit(RATE_LIMIT_PAPERS)
 def get_papers():
     """Fetch papers with filtering and pagination."""
     # Parse and validate query parameters
-    search = request.args.get('search', '')[:200]  # Limit search length
-    author = request.args.get('author', '')[:100]  # Limit author length
-    cats = request.args.getlist('category')[:20]  # Limit categories
+    search = request.args.get('search', '')[:SEARCH_MAX_LENGTH]
+    author = request.args.get('author', '')[:AUTHOR_MAX_LENGTH]
+    cats = request.args.getlist('category')[:MAX_CATEGORIES_FILTER]
     only_summarized = request.args.get('onlySummarized', 'false') == 'true'
-    min_score = max(0, min(7, request.args.get('minScore', 0, type=int)))  # Clamp 0-7
+    min_score = max(SCORE_MIN, min(SCORE_MAX, request.args.get('minScore', 0, type=int)))
     only_scored = request.args.get('onlyScored', 'false') == 'true'
     sort = request.args.get('sort', 'score')
     page = max(0, request.args.get('page', 0, type=int))  # No negative pages
@@ -208,7 +216,7 @@ def get_papers():
     return jsonify(data)
 
 @app.route('/api/papers/stats')
-@limiter.limit("30 per minute")
+@limiter.limit(RATE_LIMIT_AUTHOR_COUNTS)
 def get_papers_stats():
     """Fetch all papers for stats/trends (lightweight, no pagination)."""
     with get_db_connection() as conn:
@@ -227,15 +235,15 @@ def get_papers_stats():
         return jsonify({"papers": [dict(r) for r in rows]})
 
 @app.route('/api/export/csv')
-@limiter.limit("20 per hour")
+@limiter.limit(RATE_LIMIT_EXPORT)
 def export_csv():
     """Export filtered papers as CSV."""
     # Parse filters (same as get_papers)
-    search = request.args.get('search', '')[:200]
-    author = request.args.get('author', '')[:100]
-    cats = request.args.getlist('category')[:20]
+    search = request.args.get('search', '')[:SEARCH_MAX_LENGTH]
+    author = request.args.get('author', '')[:AUTHOR_MAX_LENGTH]
+    cats = request.args.getlist('category')[:MAX_CATEGORIES_FILTER]
     only_summarized = request.args.get('onlySummarized', 'false') == 'true'
-    min_score = max(0, min(7, request.args.get('minScore', 0, type=int)))
+    min_score = max(SCORE_MIN, min(SCORE_MAX, request.args.get('minScore', 0, type=int)))
     only_scored = request.args.get('onlyScored', 'false') == 'true'
     sort = request.args.get('sort', 'score')
 
@@ -270,7 +278,7 @@ def export_csv():
     return response
 
 @app.route('/api/bibtex/<arxiv_id>')
-@limiter.limit("60 per minute")
+@limiter.limit(RATE_LIMIT_PAPER_DETAIL)
 def get_bibtex(arxiv_id: str) -> Response:
     """Generate BibTeX entry for a paper."""
     if not ARXIV_ID_PATTERN.match(arxiv_id):
@@ -312,7 +320,7 @@ def get_bibtex(arxiv_id: str) -> Response:
         return Response(bibtex, mimetype='text/plain')
 
 @app.route('/api/categories')
-@limiter.limit("60 per minute")
+@limiter.limit(RATE_LIMIT_CATEGORIES)
 def get_categories() -> Response:
     """Provide the list of categories for the filter dropdown."""
     cats_all = []
@@ -330,7 +338,7 @@ def get_categories() -> Response:
     return jsonify(cats_all)
 
 @app.route('/api/pdf/<arxiv_id>')
-@limiter.limit("30 per minute")  # Lower limit - PDF proxy is expensive
+@limiter.limit(RATE_LIMIT_PDF_PROXY)
 def proxy_pdf(arxiv_id: str) -> Response:
     """Proxy PDF requests to avoid CORS/iframe issues with arXiv."""
     # Strict validation: arxiv IDs must match pattern like 2401.12345 or 2401.12345v1
@@ -343,7 +351,7 @@ def proxy_pdf(arxiv_id: str) -> Response:
         headers_req = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
         }
-        resp = requests.get(url, stream=True, timeout=15, headers=headers_req)
+        resp = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT, headers=headers_req)
         resp.raise_for_status()
 
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
@@ -382,5 +390,5 @@ if __name__ == '__main__':
         logger.error(f"Database not found at {DB_PATH}")
         logger.error("Please make sure your 'papers.db' file is inside a 'data' folder.")
     else:
-        logger.info("Starting Flask server on http://localhost:5001")
-        app.run(debug=os.getenv("FLASK_DEBUG", "false").lower() == "true", port=5001)
+        logger.info(f"Starting Flask server on http://localhost:{SERVER_PORT}")
+        app.run(debug=FLASK_DEBUG, port=SERVER_PORT)

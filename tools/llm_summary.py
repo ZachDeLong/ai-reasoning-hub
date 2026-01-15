@@ -3,12 +3,13 @@ import os
 import requests
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
-PROVIDER = os.getenv("SUMMARY_PROVIDER", "openai").lower()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
-OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+from config import (
+    SUMMARY_PROVIDER, OPENAI_MODEL, ANTHROPIC_MODEL, OLLAMA_MODEL,
+    OLLAMA_ENDPOINT, GEMINI_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
+    OLLAMA_TIMEOUT, RETRY_MULTIPLIER, RETRY_MIN_WAIT, RETRY_MAX_WAIT,
+    RETRY_MAX_ATTEMPTS, LLM_TRIAGE_TEMPERATURE, LLM_TRIAGE_MAX_TOKENS,
+    OPENAI_TRIAGE_MODEL
+)
 
 # Import OpenAI error types at module scope (safe even if provider != openai)
 try:
@@ -19,12 +20,12 @@ except Exception:
     APIError = RateLimitError = InternalServerError = Exception
 
 @retry(
-    wait=wait_exponential(multiplier=2, min=5, max=90),
-    stop=stop_after_attempt(8),
+    wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
+    stop=stop_after_attempt(RETRY_MAX_ATTEMPTS),
     retry=retry_if_exception_type((RateLimitError, APIError, InternalServerError)),
 )
 def call_llm(prompt: str):
-    if PROVIDER == "openai":
+    if SUMMARY_PROVIDER == "openai":
         if OpenAI is None:
             raise RuntimeError("openai SDK not available - install openai package")
         client = OpenAI()
@@ -34,35 +35,35 @@ def call_llm(prompt: str):
                 {"role": "system", "content": "You are a precise research summarizer."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.2,
-            max_tokens=2000,
+            temperature=LLM_TEMPERATURE,
+            max_tokens=LLM_MAX_TOKENS,
         )
         text = resp.choices[0].message.content
         total_tokens = resp.usage.total_tokens if resp.usage else None
         return {"text": text, "tokens": total_tokens, "model": OPENAI_MODEL}
 
-    elif PROVIDER == "anthropic":
+    elif SUMMARY_PROVIDER == "anthropic":
         from anthropic import Anthropic
         client = Anthropic()
         msg = client.messages.create(
             model=ANTHROPIC_MODEL,
-            max_tokens=2000,  # Increased here too
-            temperature=0.2,
+            max_tokens=LLM_MAX_TOKENS,
+            temperature=LLM_TEMPERATURE,
             messages=[{"role": "user", "content": prompt}],
         )
         text = "".join(part.text for part in msg.content)
         return {"text": text, "tokens": None, "model": ANTHROPIC_MODEL}
 
-    elif PROVIDER == "ollama":
+    elif SUMMARY_PROVIDER == "ollama":
         r = requests.post(
             f"{OLLAMA_ENDPOINT}/api/chat",
             json={
                 "model": OLLAMA_MODEL,
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
-                "options": {"temperature": 0.2},
+                "options": {"temperature": LLM_TEMPERATURE},
             },
-            timeout=120,
+            timeout=OLLAMA_TIMEOUT,
         )
         r.raise_for_status()
         data = r.json()
@@ -70,7 +71,7 @@ def call_llm(prompt: str):
         return {"text": text, "tokens": None, "model": OLLAMA_MODEL}
 
     else:
-        raise RuntimeError(f"Unknown SUMMARY_PROVIDER: {PROVIDER}")
+        raise RuntimeError(f"Unknown SUMMARY_PROVIDER: {SUMMARY_PROVIDER}")
 
 
 def triage_paper(title: str, abstract: str) -> dict:
@@ -122,7 +123,7 @@ Be slightly permissive—err on the side of YES if uncertainty is high (we can d
         response = model.generate_content(
             prompt,
             generation_config={
-                "temperature": 0.1,
+                "temperature": LLM_TRIAGE_TEMPERATURE,
                 "max_output_tokens": 200,
             }
         )
@@ -151,11 +152,12 @@ Be slightly permissive—err on the side of YES if uncertainty is high (we can d
 
 def triage_with_openai(title: str, abstract: str) -> dict:
     """Fallback triage using OpenAI if Gemini fails"""
-    from openai import OpenAI
+    try:
+        from openai import OpenAI
 
-    client = OpenAI()
+        client = OpenAI()
 
-    prompt = f"""
+        prompt = f"""
 Determine if this paper is relevant to AI reasoning.
 
 Title: {title}
@@ -167,24 +169,33 @@ REASON: <one sentence>
 Be slightly permissive—err on the side of YES if uncertainty is high.
 """.strip()
 
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",  # Cheap for triage
-        messages=[
-            {"role": "system", "content": "You are a research paper filter."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.1,
-        max_tokens=100,
-    )
+        resp = client.chat.completions.create(
+            model=OPENAI_TRIAGE_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a research paper filter."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=LLM_TRIAGE_TEMPERATURE,
+            max_tokens=LLM_TRIAGE_MAX_TOKENS,
+        )
 
-    text = resp.choices[0].message.content
-    relevant = "RELEVANT: YES" in text.upper()
-    reason_line = [line for line in text.split("\n") if "REASON:" in line.upper()]
-    reason = reason_line[0].split(":", 1)[1].strip() if reason_line else text
+        text = resp.choices[0].message.content
+        relevant = "RELEVANT: YES" in text.upper()
+        reason_line = [line for line in text.split("\n") if "REASON:" in line.upper()]
+        reason = reason_line[0].split(":", 1)[1].strip() if reason_line else text
 
-    return {
-        "relevant": relevant,
-        "reason": reason,
-        "model": "gpt-4o-mini (fallback)",
-        "tokens": resp.usage.total_tokens if resp.usage else 0  # Track fallback cost
-    }
+        return {
+            "relevant": relevant,
+            "reason": reason,
+            "model": f"{OPENAI_TRIAGE_MODEL} (fallback)",
+            "tokens": resp.usage.total_tokens if resp.usage else 0  # Track fallback cost
+        }
+    except Exception as e:
+        # If both Gemini and OpenAI fail, default to relevant to avoid dropping papers
+        print(f"⚠️  OpenAI fallback triage failed: {e}, defaulting to relevant")
+        return {
+            "relevant": True,
+            "reason": f"Triage unavailable ({type(e).__name__}), defaulting to relevant",
+            "model": "fallback-default",
+            "tokens": 0
+        }

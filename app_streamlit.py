@@ -1,10 +1,10 @@
-import os, sqlite3, datetime
+import os, sys, sqlite3, datetime
 from math import ceil
 import streamlit as st
 
-DB_PATH = os.path.join("data", "papers.db")
-BREAKDOWN_MAX = {"Novelty": 3, "Impact": 4, "Results": 2, "Access": 1}
-CARDS_PER_PAGE = 15
+# Add tools directory to path for config import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tools'))
+from config import DB_PATH, BREAKDOWN_MAX, CARDS_PER_PAGE, STREAMLIT_MAX_RESULTS, STREAMLIT_DEFAULT_RESULTS
 _CARD_CSS_FLAG = "_card_css"
 
 # --- Quantized score slider + breakdown chips ---
@@ -204,7 +204,7 @@ with st.sidebar:
 
     sel = st.multiselect("Filter by category", cats_all)
     only_summarized = st.checkbox("Summarized", value=False)
-    limit = st.slider("Max results", min_value=25, max_value=500, value=200, step=25)
+    limit = st.slider("Max results", min_value=25, max_value=STREAMLIT_MAX_RESULTS, value=STREAMLIT_DEFAULT_RESULTS, step=25)
 
     min_score = st.slider("Min excitement score", min_value=0, max_value=10, value=0, step=1)
     only_scored = st.checkbox("Only show scored papers", value=False)

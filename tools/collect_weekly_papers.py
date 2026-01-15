@@ -4,10 +4,10 @@ import logging
 from datetime import datetime
 import requests
 
+from config import DB_PATH, REQUEST_TIMEOUT
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-DB_PATH = os.getenv("PROJECTS_DB", "data/papers.db")
 
 def get_huggingface_papers():
     """
@@ -17,7 +17,7 @@ def get_huggingface_papers():
     papers = []
     try:
         url = "https://huggingface.co/api/daily_papers"
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
     except requests.Timeout:
