@@ -593,7 +593,7 @@
                   <ReadingListDropdown
                     currentList={currentList}
                     listNames={listNames}
-                    onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+                    onSelectList={(list) => onSelectList(paper, list)}
                   />
                 </div>
               )}
@@ -746,7 +746,7 @@
                       <ReadingListDropdown
                         currentList={currentList}
                         listNames={listNames}
-                        onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+                        onSelectList={(list) => onSelectList(paper, list)}
                       />
                     </div>
                   </div>
@@ -1478,10 +1478,8 @@
     /**
      * Reading Lists Page Component
      */
-    const ReadingListsPage = ({ readingLists, papers, onRemoveFromList, isBookmarked, toggleBookmark }) => {
+    const ReadingListsPage = ({ readingLists, onRemoveFromList }) => {
       const [activeList, setActiveList] = useState(Object.keys(readingLists)[0] || 'To Read');
-
-      const getPaperById = (arxivId) => papers.find(p => p.arxiv_id === arxivId);
 
       return (
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -1513,15 +1511,14 @@
               <div className="p-12 text-center">
                 <p className="text-stone-500 dark:text-stone-400">No papers in this list yet</p>
                 <p className="text-sm text-stone-400 dark:text-stone-500 mt-1">
-                  Add papers from the Papers tab
+                  Add papers from the Papers tab using the "+ List" button
                 </p>
               </div>
             ) : (
-              readingLists[activeList]?.map(arxivId => {
-                const paper = getPaperById(arxivId);
-                if (!paper) return null;
+              readingLists[activeList]?.map(paper => {
+                if (!paper || !paper.arxiv_id) return null;
                 return (
-                  <div key={arxivId} className="p-4 border-b border-stone-100 dark:border-stone-800 last:border-b-0 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                  <div key={paper.arxiv_id} className="p-4 border-b border-stone-100 dark:border-stone-800 last:border-b-0 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <a
@@ -1535,6 +1532,9 @@
                         <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 truncate">
                           {paper.authors}
                         </p>
+                        {paper.tldr && (
+                          <p className="text-xs text-stone-400 mt-2 line-clamp-2">{paper.tldr}</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {paper.excitement_score > 0 && (
@@ -1543,7 +1543,7 @@
                           </span>
                         )}
                         <button
-                          onClick={() => onRemoveFromList(arxivId, activeList)}
+                          onClick={() => onRemoveFromList(paper.arxiv_id, activeList)}
                           className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
                           title="Remove from list"
                         >
@@ -1850,11 +1850,17 @@
 
     const useReadingLists = () => {
       const [readingLists, setReadingLists] = useState(() => {
-        const saved = localStorage.getItem('reading_lists');
+        const saved = localStorage.getItem('reading_lists_v2');
         if (saved) {
           return JSON.parse(saved);
         }
-        // Default structure: { listName: [arxivId1, arxivId2, ...] }
+        // Migrate from old format (IDs only) if exists
+        const oldSaved = localStorage.getItem('reading_lists');
+        if (oldSaved) {
+          // Old format was IDs only - can't migrate without paper data
+          localStorage.removeItem('reading_lists');
+        }
+        // New structure: { listName: [paperObj1, paperObj2, ...] }
         return DEFAULT_LISTS.reduce((acc, name) => {
           acc[name] = [];
           return acc;
@@ -1862,19 +1868,20 @@
       });
 
       useEffect(() => {
-        localStorage.setItem('reading_lists', JSON.stringify(readingLists));
+        localStorage.setItem('reading_lists_v2', JSON.stringify(readingLists));
       }, [readingLists]);
 
-      const addToList = (arxivId, listName) => {
+      const addToList = (paper, listName) => {
+        if (!paper || !paper.arxiv_id) return;
         setReadingLists(prev => {
           const updated = { ...prev };
-          // Remove from all lists first
+          // Remove from all lists first (by arxiv_id)
           Object.keys(updated).forEach(list => {
-            updated[list] = updated[list].filter(id => id !== arxivId);
+            updated[list] = updated[list].filter(p => p.arxiv_id !== paper.arxiv_id);
           });
           // Add to the selected list
           if (listName && updated[listName]) {
-            updated[listName] = [...updated[listName], arxivId];
+            updated[listName] = [...updated[listName], paper];
           }
           return updated;
         });
@@ -1883,13 +1890,13 @@
       const removeFromList = (arxivId, listName) => {
         setReadingLists(prev => ({
           ...prev,
-          [listName]: prev[listName].filter(id => id !== arxivId)
+          [listName]: prev[listName].filter(p => p.arxiv_id !== arxivId)
         }));
       };
 
       const getListForPaper = (arxivId) => {
         for (const [listName, papers] of Object.entries(readingLists)) {
-          if (papers.includes(arxivId)) {
+          if (papers.some(p => p.arxiv_id === arxivId)) {
             return listName;
           }
         }
@@ -2238,7 +2245,7 @@
                   <ReadingListDropdown
                     currentList={currentList}
                     listNames={listNames}
-                    onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+                    onSelectList={(list) => onSelectList(paper, list)}
                   />
                 </div>
               </div>
@@ -2643,10 +2650,7 @@
               {activePage === 'lists' && (
                 <ReadingListsPage
                   readingLists={readingLists}
-                  papers={papers}
                   onRemoveFromList={removeFromList}
-                  isBookmarked={isBookmarked}
-                  toggleBookmark={toggleBookmark}
                 />
               )}
 
