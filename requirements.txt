@@ -7,4 +7,5 @@ anthropic
 Flask
 flask-cors
 flask-limiter
-gunicorn
+gunicornpytest
+pytest-cov
