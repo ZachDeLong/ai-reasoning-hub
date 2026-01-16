@@ -527,7 +527,7 @@ function App() {
                                 href={`https://arxiv.org/pdf/${expandedPaper.arxiv_id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                                className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
                               >
                                 Open in new tab →
                               </a>
