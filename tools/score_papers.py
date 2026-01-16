@@ -41,7 +41,7 @@ ACCESS (0-1):
 - Be specific: cite benchmarks, methods, or gaps
 - No fluff words: "novel", "promising", "interesting"
 
-**CALIBRATION**: Most papers = 2-4. Score 5+ is rare (real breakthrough).
+**CALIBRATION**: Use the full 0-7 range. A 2 is weak, 4 is solid, 6 is exceptional. Don't default to middle scores - commit to your assessment.
 
 ---
 Title: {title}
