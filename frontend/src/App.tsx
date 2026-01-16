@@ -416,8 +416,14 @@ function App() {
                     className="fixed inset-0 bg-black/70"
                     onClick={() => setExpandedId(null)}
                   />
-                  <div className="relative min-h-screen flex items-start justify-center p-4 pt-16">
-                    <div className="relative w-full max-w-6xl bg-white dark:bg-stone-900 rounded-xl shadow-2xl animate-fade-in overflow-hidden">
+                  <div
+                    className="relative min-h-screen flex items-start justify-center p-4 pt-16"
+                    onClick={() => setExpandedId(null)}
+                  >
+                    <div
+                      className="relative w-full max-w-6xl bg-white dark:bg-stone-900 rounded-xl shadow-2xl animate-fade-in overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {/* Modal Header */}
                       <div className="sticky top-0 z-10 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 px-6 py-4">
                         <div className="flex items-start justify-between gap-4">
