@@ -566,11 +566,13 @@ function App() {
       />
 
       <div className="flex">
-        {activePage === 'papers' && (
-          <div className="hidden lg:flex flex-shrink-0 h-[calc(100vh-3rem)] sticky top-12">
-            <aside className={`sidebar-collapse overflow-y-auto bg-stone-100 dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800 ${
-              sidebarCollapsed ? 'w-0 p-0 overflow-hidden opacity-0' : 'w-64 xl:w-72 p-4 opacity-100'
-            }`}>
+        {/* Sidebar - only content on Papers page, but toggle area always present on lg screens */}
+        <div className="hidden lg:flex flex-shrink-0 h-[calc(100vh-3rem)] sticky top-12">
+          {activePage === 'papers' ? (
+            <>
+              <aside className={`sidebar-collapse overflow-y-auto bg-stone-100 dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800 ${
+                sidebarCollapsed ? 'w-0 p-0 overflow-hidden opacity-0' : 'w-64 xl:w-72 p-4 opacity-100'
+              }`}>
               <div className="space-y-3 min-w-[240px]">
                 <SidebarSection title="Search" defaultOpen>
                   <input
@@ -740,16 +742,16 @@ function App() {
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-          </div>
-        )}
+            </>
+          ) : (
+            /* Spacer to maintain consistent layout on non-Papers pages */
+            <div className="w-6" />
+          )}
+        </div>
 
         <main className="flex-1 min-w-0">
-          <div key={activePage} className="animate-fade-in">
-            {activePage === 'papers' && (
-              <div className="max-w-[1600px] mx-auto">
-                <PapersPageContent />
-              </div>
-            )}
+          <div key={activePage} className="animate-fade-in max-w-[1600px] mx-auto">
+            {activePage === 'papers' && <PapersPageContent />}
 
             {activePage === 'trends' && <TrendsPage papers={papers} />}
 
