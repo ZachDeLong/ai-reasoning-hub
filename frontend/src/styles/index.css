@@ -99,40 +99,15 @@ body {
   animation: expandContent 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Smooth grid transitions */
-.paper-grid {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Card expand transition */
+/* Card border transition - optimized for performance */
 .paper-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.paper-card.expanded {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  will-change: border-color;
 }
 
 /* Sidebar transition */
 .sidebar-collapse {
-  transition: width 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
-}
-
-/* Button hover effects */
-.btn-hover {
-  transition: all 0.2s ease;
-}
-.btn-hover:hover {
-  transform: translateY(-1px);
-}
-
-/* Focus ring animation */
-@keyframes focusPulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2); }
-  50% { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.1); }
-}
-.focus-animate {
-  animation: focusPulse 2s ease-in-out infinite;
+  transition: width 0.25s ease, padding 0.25s ease, opacity 0.15s ease;
 }
 
 /* Safe area for notched phones */

@@ -37,6 +37,7 @@ interface PaperGridCardProps {
   listNames: string[];
   onSelectList: (arxivId: string, listName: string | null) => void;
   isFocused: boolean;
+  onSelect: () => void;
   onToggleExpand: () => void;
 }
 
@@ -48,6 +49,7 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
   listNames,
   onSelectList,
   isFocused,
+  onSelect,
   onToggleExpand,
 }) => {
   const score = paper.excitement_score || 0;
@@ -71,10 +73,11 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
   return (
     <article
       ref={cardRef}
-      className={`paper-card bg-white dark:bg-stone-900 rounded-lg border-2 overflow-hidden ${
+      onClick={onSelect}
+      className={`paper-card bg-white dark:bg-stone-900 rounded-lg border-2 cursor-pointer ${
         isFocused
-          ? 'border-amber-500 dark:border-amber-400 ring-2 ring-amber-500/20 focus-animate'
-          : 'border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700'
+          ? 'border-amber-500 dark:border-amber-400 ring-2 ring-amber-500/20'
+          : 'border-stone-200 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-700/50'
       }`}
     >
       <div className="p-4">
@@ -205,7 +208,7 @@ function App() {
   }, [keyboardEnabled]);
 
   const [activePage, setActivePage] = useState<NavItemId>('papers');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const { bookmarks, toggleBookmark, isBookmarked, clearBookmarks } = useBookmarks();
@@ -396,6 +399,7 @@ function App() {
                     listNames={getListNames()}
                     onSelectList={addToList}
                     isFocused={index === focusedIndex}
+                    onSelect={() => setFocusedIndex(index)}
                     onToggleExpand={() => setExpandedId(paper.id)}
                   />
                 </div>
@@ -409,7 +413,7 @@ function App() {
               return (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                   <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                    className="fixed inset-0 bg-black/70"
                     onClick={() => setExpandedId(null)}
                   />
                   <div className="relative min-h-screen flex items-start justify-center p-4 pt-16">
