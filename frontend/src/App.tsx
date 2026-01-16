@@ -532,7 +532,7 @@ function App() {
                                 Open in new tab →
                               </a>
                             </div>
-                            <div className="flex-1 rounded-lg overflow-hidden border border-stone-200 dark:border-stone-700">
+                            <div className="flex-1 rounded-lg overflow-hidden">
                               <iframe
                                 src={`/api/pdf/${expandedPaper.arxiv_id}`}
                                 className="w-full h-[calc(100vh-8rem)] min-h-[700px] bg-white"
