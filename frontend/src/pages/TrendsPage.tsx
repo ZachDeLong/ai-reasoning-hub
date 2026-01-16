@@ -20,8 +20,8 @@ const chartColors = {
 };
 
 const tierScoreColors = [
-  '#dc2626', '#dc2626', '#78716c', '#78716c',
-  '#d97706', '#0f766e', '#0f766e', '#9333ea',
+  '#fef3c7', '#fde68a', '#fcd34d', '#fbbf24',
+  '#f59e0b', '#d97706', '#b45309', '#92400e',
 ];
 
 const categoryColors = [
