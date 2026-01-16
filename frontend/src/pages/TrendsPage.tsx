@@ -57,9 +57,11 @@ export const TrendsPage: FC<TrendsPageProps> = ({ papers: initialPapers }) => {
       : '0';
 
     const categories: Record<string, number> = {};
+    const validCategories = ['Reasoning', 'Agents', 'Multimodal', 'Alignment', 'Benchmarks', '3D/Spatial', 'Vision', 'NLP', 'RL', 'Other'];
     papers.forEach(p => {
       if (p.reasoning_category) {
-        categories[p.reasoning_category] = (categories[p.reasoning_category] || 0) + 1;
+        const cat = validCategories.includes(p.reasoning_category) ? p.reasoning_category : 'Other';
+        categories[cat] = (categories[cat] || 0) + 1;
       }
     });
     const topCategories = Object.entries(categories)

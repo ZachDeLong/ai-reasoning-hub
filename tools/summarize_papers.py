@@ -16,6 +16,9 @@ You are a technical reviewer writing for ML engineers who want substance, not fl
 
 **OUTPUT FORMAT** (use exact headers):
 
+# Category
+<Pick ONE: Reasoning | Agents | Multimodal | Alignment | Benchmarks | 3D/Spatial | Vision | NLP | RL | Other>
+
 # TLDR
 <One sentence (max 25 words) capturing the core contribution. Be specific about WHAT and HOW.>
 
@@ -50,6 +53,12 @@ def parse_args(argv=None):
         help="Re-summarize even if a summary or TLDR already exists.",
     )
     parser.add_argument(
+        "--limit",
+        type=int,
+        default=SUMMARY_BATCH_SIZE,
+        help=f"Max papers to process (default: {SUMMARY_BATCH_SIZE}).",
+    )
+    parser.add_argument(
         "ids",
         nargs="*",
         type=int,
@@ -58,7 +67,7 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def fetch_papers(conn, ids=None, force=False):
+def fetch_papers(conn, ids=None, force=False, limit=SUMMARY_BATCH_SIZE):
     base_query = """
         SELECT id, title, authors, abstract, arxiv_link AS url,
                COALESCE(notes, '') AS notes,
@@ -71,7 +80,7 @@ def fetch_papers(conn, ids=None, force=False):
         placeholders = ",".join("?" for _ in ids)
         cur = conn.execute(base_query + f" WHERE id IN ({placeholders})", ids)
     elif force:
-        cur = conn.execute(base_query + " ORDER BY id DESC LIMIT ?", (SUMMARY_BATCH_SIZE,))
+        cur = conn.execute(base_query + " ORDER BY id DESC LIMIT ?", (limit,))
     else:
         cur = conn.execute(
             base_query
@@ -81,7 +90,7 @@ def fetch_papers(conn, ids=None, force=False):
             ORDER BY id DESC
             LIMIT ?
             """,
-            (SUMMARY_BATCH_SIZE,),
+            (limit,),
         )
 
     cols = [c[0] for c in cur.description]
@@ -97,21 +106,41 @@ def fetch_papers(conn, ids=None, force=False):
     return rows
 
 
-def save_summary(conn, pid, summary_md, tldr, model, tokens):
+def save_summary(conn, pid, summary_md, tldr, category, model, tokens):
     now = datetime.datetime.utcnow().isoformat()
     conn.execute(
         """
         UPDATE papers
         SET summary_md = ?,
             tldr = ?,
+            reasoning_category = ?,
             model_used = ?,
             summary_tokens = ?,
             last_summarized_at = ?
         WHERE id = ?
         """,
-        (summary_md, tldr, model, tokens, now, pid),
+        (summary_md, tldr, category, model, tokens, now, pid),
     )
     conn.commit()
+
+
+VALID_CATEGORIES = ['Reasoning', 'Agents', 'Multimodal', 'Alignment', 'Benchmarks', '3D/Spatial', 'Vision', 'NLP', 'RL', 'Other']
+
+
+def extract_category(markdown: str) -> str:
+    """Extract category from the # Category section."""
+    lines = [l.strip() for l in markdown.splitlines()]
+    for i, l in enumerate(lines):
+        if l.lower().replace(" ", "") == "#category":
+            for j in range(i + 1, min(i + 3, len(lines))):
+                if lines[j] and not lines[j].startswith("#"):
+                    cat = lines[j].strip()
+                    # Match against valid categories (case-insensitive)
+                    for valid in VALID_CATEGORIES:
+                        if valid.lower() == cat.lower():
+                            return valid
+                    return "Other"
+    return "Other"
 
 
 def extract_tldr(markdown: str) -> str:
@@ -145,7 +174,7 @@ def main(argv=None):
     args = parse_args(argv)
     conn = sqlite3.connect(DB_PATH)
     try:
-        rows = fetch_papers(conn, ids=args.ids, force=args.force)
+        rows = fetch_papers(conn, ids=args.ids, force=args.force, limit=args.limit)
 
         if not rows:
             if args.ids:
@@ -200,9 +229,10 @@ def main(argv=None):
                 if violations:
                     print(f"⚠️  Paper {row['id']} boilerplate: {violations}")
                 tldr = extract_tldr(md)
-                save_summary(conn, pid, md, tldr, resp.get("model"), resp.get("tokens"))
+                category = extract_category(md)
+                save_summary(conn, pid, md, tldr, category, resp.get("model"), resp.get("tokens"))
                 summarized_count += 1
-                print(f"   ✅ Summarized ({len(md)} chars)\n")
+                print(f"   ✅ Summarized [{category}] ({len(md)} chars)\n")
             except Exception as e:
                 print(f"   ❌ Summary failed: {e}\n")
 
