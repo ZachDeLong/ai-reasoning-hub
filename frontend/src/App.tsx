@@ -469,7 +469,9 @@ function App() {
                           )}
                           {expandedPaper.summary_md && (
                             <div className="prose prose-sm prose-stone dark:prose-invert max-w-none">
-                              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(expandedPaper.summary_md) as string) }} />
+                              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(
+                                expandedPaper.summary_md.replace(/^##?\s*TL;?DR\s*\n+[\s\S]*?(?=\n##?\s|\n*$)/i, '')
+                              ) as string) }} />
                             </div>
                           )}
                           {(expandedPaper.excitement_reasoning || expandedPaper.score_breakdown) && (
