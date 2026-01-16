@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #FAF7F2;
+}
+
+.dark body {
+  background-color: #1C1917;
+}
+
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Warm scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D6CFC4;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A8A29E;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAF7F2;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #57534E;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #78716C;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1C1917;
+}
+
+/* Hidden scrollbar but still scrollable */
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile drawer animation */
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slideIn 0.2s ease-out;
+}
+
+/* Page transition animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Card stagger animation */
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-card-in {
+  animation: cardFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+/* Expand content animation */
+@keyframes expandContent {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-expand {
+  animation: expandContent 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Smooth grid transitions */
+.paper-grid {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Card expand transition */
+.paper-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.paper-card.expanded {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar transition */
+.sidebar-collapse {
+  transition: width 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+}
+
+/* Button hover effects */
+.btn-hover {
+  transition: all 0.2s ease;
+}
+.btn-hover:hover {
+  transform: translateY(-1px);
+}
+
+/* Focus ring animation */
+@keyframes focusPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.1); }
+}
+.focus-animate {
+  animation: focusPulse 2s ease-in-out infinite;
+}
+
+/* Safe area for notched phones */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

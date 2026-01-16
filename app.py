@@ -32,7 +32,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+# Determine if Vite frontend build exists (production mode)
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+USE_VITE_BUILD = os.path.exists(FRONTEND_DIST)
+
+if USE_VITE_BUILD:
+    # Production: Serve from frontend/dist
+    app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
+    logger.info(f"Using Vite build from {FRONTEND_DIST}")
+else:
+    # Development: Serve from root (original index.html with CDN React)
+    app = Flask(__name__, static_folder='.', static_url_path='')
+    logger.info("Using development mode (CDN React)")
+
 CORS(app)
 
 # Rate limiting - prevent API abuse
@@ -448,8 +460,9 @@ def proxy_pdf(arxiv_id: str) -> Response:
 
 @app.route('/')
 def serve_index():
-    # This serves your `index.html` file as the main page
-    response = send_from_directory('.', 'index.html')
+    # Serve the main page from the appropriate folder
+    folder = FRONTEND_DIST if USE_VITE_BUILD else '.'
+    response = send_from_directory(folder, 'index.html')
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"

@@ -21,3 +21,7 @@ nano COMMANDS.md
 
 # System
 .idea/
+
+# Node
+node_modules/
+frontend/node_modules/
