@@ -518,12 +518,27 @@ function App() {
                         </div>
                         {/* Right: PDF */}
                         {expandedPaper.arxiv_id && (
-                          <div className="min-w-0 overflow-hidden">
-                            <iframe
-                              src={`/api/pdf/${expandedPaper.arxiv_id}`}
-                              className="w-full h-[80vh] min-h-[600px] border border-stone-200 dark:border-stone-700 rounded-lg"
-                              title={`${expandedPaper.title} PDF`}
-                            />
+                          <div className="min-w-0 flex flex-col">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                                Paper
+                              </h3>
+                              <a
+                                href={`https://arxiv.org/pdf/${expandedPaper.arxiv_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                              >
+                                Open in new tab →
+                              </a>
+                            </div>
+                            <div className="flex-1 rounded-lg overflow-hidden bg-stone-100 dark:bg-stone-800 shadow-inner">
+                              <iframe
+                                src={`/api/pdf/${expandedPaper.arxiv_id}`}
+                                className="w-full h-[75vh] min-h-[500px]"
+                                title={`${expandedPaper.title} PDF`}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
