@@ -458,7 +458,7 @@ function App() {
                       </div>
 
                       {/* Modal Content */}
-                      <div className="grid lg:grid-cols-[2fr_3fr] gap-6 p-6">
+                      <div className="grid lg:grid-cols-2 gap-6 p-6">
                         {/* Left: Summary */}
                         <div className="min-w-0 overflow-hidden">
                           {expandedPaper.tldr && (
@@ -535,7 +535,7 @@ function App() {
                             <div className="flex-1 rounded-lg overflow-hidden border border-stone-200 dark:border-stone-700">
                               <iframe
                                 src={`/api/pdf/${expandedPaper.arxiv_id}`}
-                                className="w-full h-[calc(100vh-10rem)] min-h-[600px] bg-white"
+                                className="w-full h-[calc(100vh-8rem)] min-h-[700px] bg-white"
                                 title={`${expandedPaper.title} PDF`}
                               />
                             </div>
