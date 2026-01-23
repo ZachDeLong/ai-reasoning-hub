@@ -1,131 +1,124 @@
 # AI Reasoning Hub
 
-A web application for tracking, scoring, and summarizing AI reasoning research papers from arXiv and HuggingFace.
+An automated research tool that collects, summarizes, and scores AI reasoning papers daily. Papers are fetched from HuggingFace and arXiv, triaged for relevance by Gemini, summarized by GPT-4o or Claude, and scored on a 7-point scale.
 
-## Features
+**Live:** [reasoning.nexus](https://reasoning.nexus)
 
-- **Paper Collection**: Automatically fetches trending AI papers from HuggingFace Daily Papers
-- **AI Triage**: Uses Gemini Flash to filter papers for reasoning relevance
-- **AI Summarization**: Generates structured summaries using OpenAI, Anthropic, or Ollama
-- **Excitement Scoring**: Rates papers on Novelty, Utility, Results, and Access
-- **Web Interface**: React-based frontend with filtering, search, and PDF viewing
-- **API**: Flask REST API with rate limiting and input validation
+## How It Works
+
+```
+HuggingFace Daily Papers
+        │
+        ▼
+   Gemini Flash ──── filters for reasoning relevance
+        │
+        ▼
+  GPT-4o / Claude ── generates structured summaries
+        │
+        ▼
+   Scoring Engine ── rates Novelty (0-3), Utility (0-1), Results (0-2), Access (0-1)
+        │
+        ▼
+   Flask + React ─── serves the frontend with search, filters, and PDF viewing
+```
+
+Papers are collected daily via GitHub Actions and auto-deployed to Render.
+
+## Frontend
+
+- **Paper list** with score, title, authors, TLDR, and inline actions
+- **Expand any paper** to read the full summary alongside the embedded PDF
+- **Trends page** with tier distribution (S/A/B/C/D), score breakdown averages, and charts
+- **Reading lists** (To Read, Reading, Completed) stored in localStorage
+- **Bookmarks** for quick saving
+- **Keyboard shortcuts** (j/k to navigate, Enter to expand, s to save, o to open)
+- **Filtering** by topic, score, author, date, and reading list
+- **Dark mode** with system preference detection
+- **Mobile** bottom nav and slide-out filter drawer
+- **CSV export** and shareable filtered URLs
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.11+
-- SQLite
-- API keys for LLM providers (OpenAI, Anthropic, and/or Google)
-
-### Installation
-
 ```bash
-# Clone the repository
 git clone https://github.com/ZachDeLong/ai-reasoning-hub.git
 cd ai-reasoning-hub
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Set up environment variables
-export GOOGLE_API_KEY="your-gemini-key"      # For triage
-export OPENAI_API_KEY="your-openai-key"      # For summaries (default)
-# OR
-export ANTHROPIC_API_KEY="your-anthropic-key"
-export SUMMARY_PROVIDER="anthropic"
+cp .env.example .env  # add your API keys
+python app.py          # http://localhost:5001
 ```
 
-### Running the App
+See `.env.example` for required keys (Google for triage, OpenAI or Anthropic for summaries).
 
-**Flask Web App (Recommended)**
-```bash
-python app.py
-# Open http://localhost:5001
-```
+## Pipeline
 
-**Streamlit App**
-```bash
-streamlit run app_streamlit.py
-# Open http://localhost:8501
-```
-
-### Collecting Papers
+Run the full collection pipeline manually:
 
 ```bash
-# Fetch new papers from HuggingFace
-python tools/collect_weekly_papers.py
-
-# Generate summaries for new papers
-python tools/summarize_papers.py
-
-# Score papers
-python tools/score_papers.py
+python tools/collect_weekly_papers.py   # fetch from HuggingFace
+python tools/summarize_papers.py        # generate summaries
+python tools/score_papers.py            # score papers
 ```
 
-## Configuration
+Or run everything at once:
 
-### Environment Variables
+```bash
+python tools/pipeline.py
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `FLASK_DEBUG` | `false` | Enable Flask debug mode |
-| `OPENAI_MODEL` | `gpt-4o` | OpenAI model for summaries |
-| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model for triage |
-| `PROJECTS_DB` | `data/papers.db` | SQLite database path |
-| `SUMMARY_BATCH` | `10` | Papers per batch |
+The GitHub Actions workflow (`.github/workflows/collect-papers.yml`) runs this daily at 6 AM UTC.
 
-## API Endpoints
+## API
 
-| Endpoint | Method | Rate Limit | Description |
-|----------|--------|------------|-------------|
-| `/api/papers` | GET | 100/min | Fetch papers with filters |
-| `/api/categories` | GET | 60/min | Get category list |
-| `/api/pdf/<arxiv_id>` | GET | 30/min | Proxy arXiv PDFs |
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/papers` | Papers with pagination, search, filters, sort |
+| `GET /api/papers/stats` | All papers for trends (no pagination) |
+| `GET /api/categories` | Category list |
+| `GET /api/pdf/<arxiv_id>` | Proxied arXiv PDF |
+| `GET /api/bibtex/<arxiv_id>` | BibTeX citation |
+| `GET /api/export/csv` | CSV export with current filters |
 
-### Query Parameters for `/api/papers`
-
-- `search`: Search term (max 200 chars)
-- `category`: Filter by category (repeatable)
-- `minScore`: Minimum score 0-7
-- `onlySummarized`: true/false
-- `onlyScored`: true/false
-- `sort`: `newest` or `score`
-- `page`: Page number (0-indexed)
+All endpoints are rate-limited.
 
 ## Project Structure
 
 ```
 ai-reasoning-hub/
-├── app.py              # Flask backend
-├── app_streamlit.py    # Streamlit frontend
-├── index.html          # Static React frontend
-├── about.html          # About page
-├── requirements.txt    # Python dependencies
-├── data/
-│   └── papers.db       # SQLite database
+├── app.py                          # Flask backend + API
+├── index.html                      # React frontend
+├── about.html                      # About / scoring methodology
+├── render.yaml                     # Render deployment config
+├── frontend/                       # React + TypeScript components
+├── .github/workflows/
+│   └── collect-papers.yml          # Daily collection via GitHub Actions
 ├── backend/
-│   ├── fetch_arxiv.py  # arXiv fetching
-│   ├── search.py       # Search utilities
-│   └── setup_db.py     # Database setup
-└── tools/
-    ├── collect_weekly_papers.py  # Paper collection
-    ├── summarize_papers.py       # AI summarization
-    ├── score_papers.py           # Paper scoring
-    ├── llm_summary.py            # LLM API wrapper
-    └── pipeline.py               # Full pipeline
+│   ├── fetch_arxiv.py              # arXiv API
+│   ├── search.py                   # Search utilities
+│   └── setup_db.py                 # Database initialization
+├── tools/
+│   ├── collect_weekly_papers.py    # Paper fetching
+│   ├── summarize_papers.py         # LLM summarization
+│   ├── score_papers.py             # Scoring engine
+│   ├── llm_summary.py             # LLM provider wrapper
+│   └── pipeline.py                 # Full pipeline runner
+├── migrations/                     # Database migrations
+├── tests/                          # Test suite
+└── data/
+    └── papers.db                   # SQLite database
 ```
 
-## Development
+## Scoring
 
-```bash
-# Run with debug mode
-FLASK_DEBUG=true python app.py
+Each paper is scored out of 7 points:
 
-# Run in dev container
-# Uses .devcontainer/devcontainer.json
-```
+| Dimension | Max | What it measures |
+|-----------|-----|-----------------|
+| Novelty | 3 | Originality of the approach |
+| Utility | 1 | Practical value for researchers |
+| Results | 2 | Strength of findings |
+| Access | 1 | Public code/data availability |
+
+Tiers: **S** (7) / **A** (5-6) / **B** (4) / **C** (2-3) / **D** (0-1)
 
 ## License
 
