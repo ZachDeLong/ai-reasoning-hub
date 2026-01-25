@@ -37,7 +37,7 @@ export const PaperCard: FC<PaperCardProps> = ({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {paper.reasoning_category && (
-              <span className="text-xs font-medium uppercase tracking-wider text-amber-800 dark:text-amber-500">
+              <span className="font-cholla text-xs font-medium uppercase tracking-wider text-amber-800 dark:text-amber-500">
                 {paper.reasoning_category}
               </span>
             )}
@@ -47,7 +47,7 @@ export const PaperCard: FC<PaperCardProps> = ({
           </div>
           {score > 0 && (
             <div className={`flex items-center gap-1 ${getScoreColor(score)}`}>
-              <span className="text-base font-bold">{score}</span>
+              <span className="font-cholla text-base font-bold">{score}</span>
               <span className="text-xs text-stone-400">/7</span>
             </div>
           )}

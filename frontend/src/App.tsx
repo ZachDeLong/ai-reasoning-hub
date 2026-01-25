@@ -99,7 +99,7 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
         </div>
 
         <h3 className="font-semibold text-stone-900 dark:text-stone-100 mb-1 leading-snug">
-          <a href={paper.arxiv_link} target="_blank" rel="noopener noreferrer" className="hover:text-amber-700 dark:hover:text-amber-400">
+          <a href={paper.arxiv_link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hover:text-amber-700 dark:hover:text-amber-400">
             {paper.title}
           </a>
         </h3>
@@ -121,7 +121,8 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
         <div className="flex items-center justify-between pt-2 border-t border-stone-100 dark:border-stone-800">
           <div className="flex items-center gap-1">
             <button
-              onClick={onToggleExpand}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
               className="px-2 py-1.5 text-xs text-amber-700 dark:text-amber-500 hover:text-amber-800 dark:hover:text-amber-400 font-medium rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
             >
               Read more
@@ -130,13 +131,14 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
               href={paper.arxiv_link}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="px-2 py-1.5 text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
             >
               arXiv
             </a>
             {paper.arxiv_id && (
               <button
-                onClick={handleCite}
+                onClick={(e) => { e.stopPropagation(); handleCite(); }}
                 className="px-2 py-1.5 text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
               >
                 Cite
@@ -145,18 +147,20 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => onToggleBookmark(paper.arxiv_id)}
+              onClick={(e) => { e.stopPropagation(); onToggleBookmark(paper.arxiv_id); }}
               className={`px-2 py-1.5 text-xs rounded-md transition-colors ${
                 isBookmarked ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-stone-400 hover:text-amber-500 hover:bg-stone-100 dark:hover:bg-stone-800'
               }`}
             >
               {isBookmarked ? 'Saved' : 'Save'}
             </button>
-            <ReadingListDropdown
-              currentList={currentList}
-              listNames={listNames}
-              onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <ReadingListDropdown
+                currentList={currentList}
+                listNames={listNames}
+                onSelectList={(list) => onSelectList(paper.arxiv_id, list)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -210,6 +214,7 @@ function App() {
   const [activePage, setActivePage] = useState<NavItemId>('papers');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { bookmarks, toggleBookmark, isBookmarked, clearBookmarks } = useBookmarks();
   const { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount, clearLists } = useReadingLists();
@@ -295,7 +300,6 @@ function App() {
 
   const PapersPageContent: FC = () => {
     const [focusedIndex, setFocusedIndex] = useState(0);
-    const [expandedId, setExpandedId] = useState<number | null>(null);
 
     const filteredPapers = papers
       .filter(paper => !filters.onlyBookmarked || isBookmarked(paper.arxiv_id))
@@ -350,7 +354,6 @@ function App() {
 
     useEffect(() => {
       setFocusedIndex(0);
-      setExpandedId(null);
     }, []);
 
     return (
@@ -386,11 +389,7 @@ function App() {
           <>
             <div className="paper-grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
               {filteredPapers.map((paper, index) => (
-                <div
-                  key={paper.id}
-                  className="animate-card-in"
-                  style={{ animationDelay: `${Math.min(index * 40, 300)}ms` }}
-                >
+                <div key={paper.id}>
                   <PaperGridCard
                     paper={paper}
                     isBookmarked={isBookmarked(paper.arxiv_id)}
@@ -406,149 +405,6 @@ function App() {
               ))}
             </div>
 
-            {/* Paper Detail Modal */}
-            {expandedId && (() => {
-              const expandedPaper = filteredPapers.find(p => p.id === expandedId);
-              if (!expandedPaper) return null;
-              return (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                  <div
-                    className="fixed inset-0 bg-black/70"
-                    onClick={() => setExpandedId(null)}
-                  />
-                  <div
-                    className="relative min-h-screen flex items-start justify-center p-4 pt-16"
-                    onClick={() => setExpandedId(null)}
-                  >
-                    <div
-                      className="relative w-full max-w-6xl bg-white dark:bg-stone-900 rounded-xl shadow-2xl animate-fade-in overflow-hidden"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Modal Header */}
-                      <div className="sticky top-0 z-10 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 px-6 py-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              {expandedPaper.reasoning_category && (
-                                <span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">
-                                  {expandedPaper.reasoning_category}
-                                </span>
-                              )}
-                              <span className="text-xs text-stone-400">{expandedPaper.date?.slice(0, 10)}</span>
-                              {expandedPaper.excitement_score > 0 && (
-                                <span className={`text-sm font-bold ${getScoreColor(expandedPaper.excitement_score)}`}>
-                                  {expandedPaper.excitement_score}/7
-                                </span>
-                              )}
-                            </div>
-                            <h2 className="font-serif text-xl font-bold text-stone-900 dark:text-stone-100 leading-tight">
-                              {expandedPaper.title}
-                            </h2>
-                            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{expandedPaper.authors}</p>
-                          </div>
-                          <button
-                            onClick={() => setExpandedId(null)}
-                            className="p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Modal Content */}
-                      <div className="grid lg:grid-cols-2 gap-6 p-6">
-                        {/* Left: Summary */}
-                        <div className="min-w-0 overflow-hidden">
-                          {expandedPaper.tldr && (
-                            <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-500 mb-2">TL;DR</p>
-                              <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">{expandedPaper.tldr}</p>
-                            </div>
-                          )}
-                          {expandedPaper.summary_md && (
-                            <div className="prose prose-sm prose-stone dark:prose-invert max-w-none">
-                              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(
-                                expandedPaper.summary_md.replace(/^##?\s*TL;?DR\s*\n+[\s\S]*?(?=\n##?\s|\n*$)/i, '')
-                              ) as string) }} />
-                            </div>
-                          )}
-                          {(expandedPaper.excitement_reasoning || expandedPaper.score_breakdown) && (
-                            <div className="mt-6 pt-6 border-t border-stone-200 dark:border-stone-700">
-                              <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-3">Assessment</h4>
-                              {expandedPaper.score_breakdown && (
-                                <div className="mb-3">
-                                  <ScoreBreakdownChips breakdownString={expandedPaper.score_breakdown} compact={false} />
-                                </div>
-                              )}
-                              {expandedPaper.excitement_reasoning && (
-                                <p className="text-sm text-stone-600 dark:text-stone-400 italic">{expandedPaper.excitement_reasoning}</p>
-                              )}
-                            </div>
-                          )}
-                          {/* Action buttons */}
-                          <div className="flex items-center gap-3 mt-6 pt-4 border-t border-stone-200 dark:border-stone-700">
-                            <a
-                              href={expandedPaper.arxiv_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 text-sm text-amber-700 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                            >
-                              View on arXiv →
-                            </a>
-                            <button
-                              onClick={async () => {
-                                const bibtex = await fetchBibtex(expandedPaper.arxiv_id);
-                                await navigator.clipboard.writeText(bibtex);
-                              }}
-                              className="px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
-                            >
-                              Copy BibTeX
-                            </button>
-                            <button
-                              onClick={() => toggleBookmark(expandedPaper.arxiv_id)}
-                              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                                isBookmarked(expandedPaper.arxiv_id)
-                                  ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                                  : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
-                              }`}
-                            >
-                              {isBookmarked(expandedPaper.arxiv_id) ? 'Saved' : 'Save'}
-                            </button>
-                          </div>
-                        </div>
-                        {/* Right: PDF */}
-                        {expandedPaper.arxiv_id && (
-                          <div className="min-w-0 flex flex-col">
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                                Paper
-                              </h3>
-                              <a
-                                href={`https://arxiv.org/pdf/${expandedPaper.arxiv_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
-                              >
-                                Open in new tab →
-                              </a>
-                            </div>
-                            <div className="flex-1 rounded-lg overflow-hidden">
-                              <iframe
-                                src={`/api/pdf/${expandedPaper.arxiv_id}`}
-                                className="w-full h-[calc(100vh-8rem)] min-h-[700px] bg-white"
-                                title={`${expandedPaper.title} PDF`}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
           </>
         ) : (
           <div className="flex items-center justify-center h-64">
@@ -783,6 +639,7 @@ function App() {
                 readingLists={readingLists}
                 papers={papers}
                 onRemoveFromList={removeFromList}
+                onExpandPaper={(id) => setExpandedId(id)}
               />
             )}
 
@@ -886,11 +743,155 @@ function App() {
 
       <MobileBottomNav
         activePage={activePage}
-        setActivePage={setActivePage}
+        setActivePage={(page) => { setActivePage(page); setMobileFiltersOpen(false); }}
         onOpenFilters={() => setMobileFiltersOpen(true)}
       />
 
       <div className="md:hidden h-16" />
+
+      {/* Global Paper Detail Modal */}
+      {expandedId && (() => {
+        const expandedPaper = papers.find(p => p.id === expandedId);
+        if (!expandedPaper) return null;
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-black/70"
+              onClick={() => setExpandedId(null)}
+            />
+            <div
+              className="relative min-h-screen flex items-start justify-center p-4 pt-16"
+              onClick={() => setExpandedId(null)}
+            >
+              <div
+                className="relative w-full max-w-6xl bg-white dark:bg-stone-900 rounded-xl shadow-2xl animate-fade-in overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="sticky top-0 z-10 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 px-6 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        {expandedPaper.reasoning_category && (
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">
+                            {expandedPaper.reasoning_category}
+                          </span>
+                        )}
+                        <span className="text-xs text-stone-400">{expandedPaper.date?.slice(0, 10)}</span>
+                        {expandedPaper.excitement_score > 0 && (
+                          <span className={`text-sm font-bold ${getScoreColor(expandedPaper.excitement_score)}`}>
+                            {expandedPaper.excitement_score}/7
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="font-serif text-xl font-bold text-stone-900 dark:text-stone-100 leading-tight">
+                        {expandedPaper.title}
+                      </h2>
+                      <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{expandedPaper.authors}</p>
+                    </div>
+                    <button
+                      onClick={() => setExpandedId(null)}
+                      className="p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Content */}
+                <div className="grid lg:grid-cols-2 gap-6 p-6">
+                  {/* Left: Summary */}
+                  <div className="min-w-0 overflow-hidden">
+                    {expandedPaper.tldr && (
+                      <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-500 mb-2">TL;DR</p>
+                        <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">{expandedPaper.tldr}</p>
+                      </div>
+                    )}
+                    {expandedPaper.summary_md && (
+                      <div className="prose prose-sm prose-stone dark:prose-invert max-w-none">
+                        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(
+                          expandedPaper.summary_md.replace(/^##?\s*TL;?DR\s*\n+[\s\S]*?(?=\n##?\s|\n*$)/i, '')
+                        ) as string) }} />
+                      </div>
+                    )}
+                    {(expandedPaper.excitement_reasoning || expandedPaper.score_breakdown) && (
+                      <div className="mt-6 pt-6 border-t border-stone-200 dark:border-stone-700">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-3">Assessment</h4>
+                        {expandedPaper.score_breakdown && (
+                          <div className="mb-3">
+                            <ScoreBreakdownChips breakdownString={expandedPaper.score_breakdown} compact={false} />
+                          </div>
+                        )}
+                        {expandedPaper.excitement_reasoning && (
+                          <p className="text-sm text-stone-600 dark:text-stone-400 italic">{expandedPaper.excitement_reasoning}</p>
+                        )}
+                      </div>
+                    )}
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-3 mt-6 pt-4 border-t border-stone-200 dark:border-stone-700">
+                      <a
+                        href={expandedPaper.arxiv_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-sm text-amber-700 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                      >
+                        View on arXiv →
+                      </a>
+                      <button
+                        onClick={async () => {
+                          const bibtex = await fetchBibtex(expandedPaper.arxiv_id);
+                          await navigator.clipboard.writeText(bibtex);
+                        }}
+                        className="px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
+                      >
+                        Copy BibTeX
+                      </button>
+                      <button
+                        onClick={() => toggleBookmark(expandedPaper.arxiv_id)}
+                        className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                          isBookmarked(expandedPaper.arxiv_id)
+                            ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                            : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
+                        }`}
+                      >
+                        {isBookmarked(expandedPaper.arxiv_id) ? 'Saved' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                  {/* Right: PDF */}
+                  {expandedPaper.arxiv_id && (
+                    <div className="min-w-0 flex flex-col">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                          Paper
+                        </h3>
+                        <a
+                          href={`https://arxiv.org/pdf/${expandedPaper.arxiv_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
+                        >
+                          Open in new tab →
+                        </a>
+                      </div>
+                      <div className="flex-1 rounded-lg overflow-hidden">
+                        <iframe
+                          src={`/api/pdf/${expandedPaper.arxiv_id}`}
+                          className="w-full h-[calc(100vh-8rem)] min-h-[700px] bg-white"
+                          title={`${expandedPaper.title} PDF`}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

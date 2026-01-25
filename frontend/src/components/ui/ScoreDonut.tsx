@@ -19,7 +19,7 @@ export const ScoreDonut: FC<ScoreDonutProps> = ({ score }) => {
 
   return (
     <div className={`flex flex-col items-center justify-center w-24 h-24 rounded-full border-8 bg-white dark:bg-gray-800 flex-shrink-0 ${colorClasses}`}>
-      <span className="text-3xl font-bold">{score}</span>
+      <span className="font-cholla text-3xl font-bold">{score}</span>
       <span className="text-xs font-medium -mt-1">/ 7</span>
     </div>
   );

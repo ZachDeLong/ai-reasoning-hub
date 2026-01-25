@@ -7,12 +7,14 @@ interface ReadingListsPageProps {
   readingLists: ReadingLists;
   papers: Paper[];
   onRemoveFromList: (arxivId: string, listName: string) => void;
+  onExpandPaper: (paperId: number) => void;
 }
 
 export const ReadingListsPage: FC<ReadingListsPageProps> = ({
   readingLists,
   papers,
   onRemoveFromList,
+  onExpandPaper,
 }) => {
   const [activeList, setActiveList] = useState(Object.keys(readingLists)[0] || 'To Read');
 
@@ -58,18 +60,14 @@ export const ReadingListsPage: FC<ReadingListsPageProps> = ({
             return (
               <div
                 key={arxivId}
-                className="p-4 border-b border-stone-100 dark:border-stone-800 last:border-b-0 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+                onClick={() => onExpandPaper(paper.id)}
+                className="p-4 border-b border-stone-100 dark:border-stone-800 last:border-b-0 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <a
-                      href={paper.arxiv_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-stone-900 dark:text-stone-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
-                    >
+                    <span className="font-medium text-stone-900 dark:text-stone-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors">
                       {paper.title}
-                    </a>
+                    </span>
                     <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 truncate">
                       {paper.authors}
                     </p>
@@ -81,7 +79,7 @@ export const ReadingListsPage: FC<ReadingListsPageProps> = ({
                       </span>
                     )}
                     <button
-                      onClick={() => onRemoveFromList(arxivId, activeList)}
+                      onClick={(e) => { e.stopPropagation(); onRemoveFromList(arxivId, activeList); }}
                       className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
                       title="Remove from list"
                     >

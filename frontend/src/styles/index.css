@@ -1,4 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600&display=swap');
+
+@font-face {
+  font-family: 'Cholla Unicase';
+  src: url('/fonts/ChollaUnicase-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -14,7 +22,13 @@ body {
 }
 
 .font-serif {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-style: oblique;
+  font-weight: bold;
+}
+
+.font-cholla {
+  font-family: 'Cholla Unicase', sans-serif;
 }
 
 /* Warm scrollbar */

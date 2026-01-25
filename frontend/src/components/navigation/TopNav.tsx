@@ -24,7 +24,7 @@ export const TopNav: FC<TopNavProps> = ({ activePage, setActivePage, darkMode, o
               <button
                 key={item.id}
                 onClick={() => setActivePage(item.id)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`font-cholla px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   activePage === item.id
                     ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
                     : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
@@ -38,7 +38,7 @@ export const TopNav: FC<TopNavProps> = ({ activePage, setActivePage, darkMode, o
           <div className="flex items-center gap-3">
             <a
               href="/about"
-              className="text-xs text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors"
+              className="font-cholla text-xs text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-500 transition-colors"
             >
               About
             </a>

@@ -76,7 +76,7 @@ export const MobileBottomNav: FC<MobileBottomNavProps> = ({ activePage, setActiv
             }`}
           >
             {item.icon}
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <span className="font-cholla text-[10px] font-medium">{item.label}</span>
           </button>
         ))}
       </div>
