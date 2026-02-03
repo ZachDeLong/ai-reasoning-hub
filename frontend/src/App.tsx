@@ -6,7 +6,7 @@ import type { NavItemId } from '@/constants';
 import { buildQueryString, getScoreColor, fetchBibtex } from '@/utils';
 import { useBookmarks, useReadingLists } from '@/hooks';
 import { TopNav, MobileBottomNav, SidebarSection } from '@/components/navigation';
-import { ScoreBreakdownChips, ReadingListDropdown } from '@/components/ui';
+import { ScoreBreakdownChips, ReadingListDropdown, PdfViewer } from '@/components/ui';
 import { TrendsPage, ReadingListsPage, SettingsPage } from '@/pages';
 
 const SkeletonCard: FC = () => (
@@ -863,7 +863,7 @@ function App() {
                   </div>
                   {/* Right: PDF */}
                   {expandedPaper.arxiv_id && (
-                    <div className="min-w-0 flex flex-col">
+                    <div className="min-w-0 flex flex-col h-[calc(100vh-12rem)]">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                           Paper
@@ -877,11 +877,10 @@ function App() {
                           Open in new tab →
                         </a>
                       </div>
-                      <div className="flex-1 rounded-lg overflow-hidden">
-                        <iframe
-                          src={`/api/pdf/${expandedPaper.arxiv_id}`}
-                          className="w-full h-[calc(100vh-8rem)] min-h-[700px] bg-white"
-                          title={`${expandedPaper.title} PDF`}
+                      <div className="flex-1 min-h-[500px]">
+                        <PdfViewer
+                          arxivId={expandedPaper.arxiv_id}
+                          darkMode={darkMode}
                         />
                       </div>
                     </div>

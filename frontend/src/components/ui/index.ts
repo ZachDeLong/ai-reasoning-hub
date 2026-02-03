@@ -6,3 +6,4 @@ export { ScoreBreakdownChips } from './ScoreBreakdownChips';
 export { ReadingListDropdown } from './ReadingListDropdown';
 export { BookmarkStar } from './BookmarkStar';
 export { Pagination } from './Pagination';
+export { PdfViewer } from './PdfViewer';
