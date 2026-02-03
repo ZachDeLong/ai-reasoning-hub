@@ -129,82 +129,35 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* PDF Viewer styling */
-.pdf-viewer-light,
-.pdf-viewer-dark {
+/* PDF Viewer - minimal styling */
+.pdf-light,
+.pdf-dark {
   height: 100%;
 }
 
-.pdf-viewer-light .rpv-core__viewer,
-.pdf-viewer-dark .rpv-core__viewer {
+.pdf-light .rpv-core__viewer,
+.pdf-dark .rpv-core__viewer {
   height: 100%;
 }
 
-/* Light mode overrides */
-.pdf-viewer-light .rpv-default-layout__container {
-  border: 1px solid #e7e5e4;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.pdf-viewer-light .rpv-default-layout__toolbar {
+.pdf-light .rpv-core__inner-container {
   background-color: #fafaf9;
-  border-bottom: 1px solid #e7e5e4;
 }
 
-.pdf-viewer-light .rpv-default-layout__sidebar--opened {
-  background-color: #fafaf9;
-  border-right: 1px solid #e7e5e4;
-}
-
-/* Dark mode overrides */
-.pdf-viewer-dark .rpv-default-layout__container {
-  background-color: #1c1917;
-  border: 1px solid #44403c;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.pdf-viewer-dark .rpv-default-layout__toolbar {
-  background-color: #292524;
-  border-bottom: 1px solid #44403c;
-}
-
-.pdf-viewer-dark .rpv-default-layout__sidebar--opened {
-  background-color: #1c1917;
-  border-right: 1px solid #44403c;
-}
-
-.pdf-viewer-dark .rpv-default-layout__body {
-  background-color: #1c1917;
-}
-
-.pdf-viewer-dark .rpv-core__inner-page {
+.pdf-dark .rpv-core__inner-container {
   background-color: #292524;
 }
 
-/* Accent color for both modes */
-.pdf-viewer-light .rpv-core__annotation--link:hover,
-.pdf-viewer-dark .rpv-core__annotation--link:hover {
-  background-color: rgba(245, 158, 11, 0.2);
+/* Hide ALL scrollbars in PDF viewer */
+.pdf-light *,
+.pdf-dark * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-/* Toolbar button hover states */
-.pdf-viewer-dark .rpv-core__minimal-button:hover {
-  background-color: #44403c;
-}
-
-.pdf-viewer-light .rpv-core__minimal-button:hover {
-  background-color: #e7e5e4;
-}
-
-/* Search highlight color */
-.pdf-viewer-light .rpv-search__highlight,
-.pdf-viewer-dark .rpv-search__highlight {
-  background-color: rgba(245, 158, 11, 0.4);
-}
-
-.pdf-viewer-light .rpv-search__highlight--current,
-.pdf-viewer-dark .rpv-search__highlight--current {
-  background-color: rgba(245, 158, 11, 0.7);
+.pdf-light *::-webkit-scrollbar,
+.pdf-dark *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }

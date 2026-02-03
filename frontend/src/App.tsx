@@ -760,7 +760,7 @@ function App() {
               onClick={() => setExpandedId(null)}
             />
             <div
-              className="relative min-h-screen flex items-start justify-center p-4 pt-16"
+              className="relative min-h-screen flex items-start justify-center p-4 pt-12"
               onClick={() => setExpandedId(null)}
             >
               <div
@@ -803,7 +803,7 @@ function App() {
                 {/* Modal Content */}
                 <div className="grid lg:grid-cols-2 gap-6 p-6">
                   {/* Left: Summary */}
-                  <div className="min-w-0 overflow-hidden">
+                  <div className="min-w-0 overflow-y-auto max-h-[calc(100vh-12rem)] scrollbar-hidden">
                     {expandedPaper.tldr && (
                       <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                         <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-500 mb-2">TL;DR</p>
@@ -863,26 +863,11 @@ function App() {
                   </div>
                   {/* Right: PDF */}
                   {expandedPaper.arxiv_id && (
-                    <div className="min-w-0 flex flex-col h-[calc(100vh-12rem)]">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                          Paper
-                        </h3>
-                        <a
-                          href={`https://arxiv.org/pdf/${expandedPaper.arxiv_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
-                        >
-                          Open in new tab →
-                        </a>
-                      </div>
-                      <div className="flex-1 min-h-[500px]">
-                        <PdfViewer
-                          arxivId={expandedPaper.arxiv_id}
-                          darkMode={darkMode}
-                        />
-                      </div>
+                    <div className="min-w-0 h-[calc(100vh-12rem)]">
+                      <PdfViewer
+                        arxivId={expandedPaper.arxiv_id}
+                        darkMode={darkMode}
+                      />
                     </div>
                   )}
                 </div>
