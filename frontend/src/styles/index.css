@@ -128,3 +128,36 @@ body {
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* PDF Viewer - minimal styling */
+.pdf-light,
+.pdf-dark {
+  height: 100%;
+}
+
+.pdf-light .rpv-core__viewer,
+.pdf-dark .rpv-core__viewer {
+  height: 100%;
+}
+
+.pdf-light .rpv-core__inner-container {
+  background-color: #fafaf9;
+}
+
+.pdf-dark .rpv-core__inner-container {
+  background-color: #292524;
+}
+
+/* Hide ALL scrollbars in PDF viewer */
+.pdf-light *,
+.pdf-dark * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.pdf-light *::-webkit-scrollbar,
+.pdf-dark *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}

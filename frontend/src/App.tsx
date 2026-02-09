@@ -6,7 +6,7 @@ import type { NavItemId } from '@/constants';
 import { buildQueryString, getScoreColor, fetchBibtex } from '@/utils';
 import { useBookmarks, useReadingLists } from '@/hooks';
 import { TopNav, MobileBottomNav, SidebarSection } from '@/components/navigation';
-import { ScoreBreakdownChips, ReadingListDropdown } from '@/components/ui';
+import { ScoreBreakdownChips, ReadingListDropdown, PdfViewer } from '@/components/ui';
 import { TrendsPage, ReadingListsPage, SettingsPage } from '@/pages';
 
 const SkeletonCard: FC = () => (
@@ -760,7 +760,7 @@ function App() {
               onClick={() => setExpandedId(null)}
             />
             <div
-              className="relative min-h-screen flex items-start justify-center p-4 pt-16"
+              className="relative min-h-screen flex items-start justify-center p-4 pt-12"
               onClick={() => setExpandedId(null)}
             >
               <div
@@ -803,7 +803,7 @@ function App() {
                 {/* Modal Content */}
                 <div className="grid lg:grid-cols-2 gap-6 p-6">
                   {/* Left: Summary */}
-                  <div className="min-w-0 overflow-hidden">
+                  <div className="min-w-0 overflow-y-auto max-h-[calc(100vh-12rem)] scrollbar-hidden">
                     {expandedPaper.tldr && (
                       <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                         <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-500 mb-2">TL;DR</p>
@@ -863,27 +863,11 @@ function App() {
                   </div>
                   {/* Right: PDF */}
                   {expandedPaper.arxiv_id && (
-                    <div className="min-w-0 flex flex-col">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                          Paper
-                        </h3>
-                        <a
-                          href={`https://arxiv.org/pdf/${expandedPaper.arxiv_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
-                        >
-                          Open in new tab →
-                        </a>
-                      </div>
-                      <div className="flex-1 rounded-lg overflow-hidden">
-                        <iframe
-                          src={`/api/pdf/${expandedPaper.arxiv_id}`}
-                          className="w-full h-[calc(100vh-8rem)] min-h-[700px] bg-white"
-                          title={`${expandedPaper.title} PDF`}
-                        />
-                      </div>
+                    <div className="min-w-0 h-[calc(100vh-12rem)]">
+                      <PdfViewer
+                        arxivId={expandedPaper.arxiv_id}
+                        darkMode={darkMode}
+                      />
                     </div>
                   )}
                 </div>
