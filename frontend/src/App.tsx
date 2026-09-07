@@ -260,6 +260,8 @@ function App() {
   };
 
   const [filters, setFilters] = useState<Filters>(getInitialFilters);
+  const [searchDraft, setSearchDraft] = useState(filters.search);
+  const [authorDraft, setAuthorDraft] = useState(filters.author);
   const [currentPage, setCurrentPage] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return parsePageParam(params.get('page'));
@@ -270,6 +272,17 @@ function App() {
     const newUrl = queryString ? `?${queryString}` : window.location.pathname;
     window.history.replaceState(null, '', newUrl);
   }, [filters, currentPage]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilters(previous => {
+        if (previous.search === searchDraft && previous.author === authorDraft) return previous;
+        return { ...previous, search: searchDraft, author: authorDraft };
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchDraft, authorDraft]);
 
   const [papers, setPapers] = useState<Paper[]>([]);
   const [allCategories, setAllCategories] = useState<string[]>([]);
@@ -512,21 +525,15 @@ function App() {
                 <SidebarSection title="Search" defaultOpen>
                   <input
                     type="text"
-                    defaultValue={filters.search}
-                    onChange={e => {
-                      const value = e.target.value;
-                      setTimeout(() => setFilters(prev => ({ ...prev, search: value })), 300);
-                    }}
+                    value={searchDraft}
+                    onChange={e => setSearchDraft(e.target.value)}
                     placeholder="Search papers..."
                     className="w-full px-2.5 py-1.5 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                   <input
                     type="text"
-                    defaultValue={filters.author}
-                    onChange={e => {
-                      const value = e.target.value;
-                      setTimeout(() => setFilters(prev => ({ ...prev, author: value })), 300);
-                    }}
+                    value={authorDraft}
+                    onChange={e => setAuthorDraft(e.target.value)}
                     placeholder="Filter by author..."
                     className="w-full px-2.5 py-1.5 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 mt-1.5"
                   />
@@ -742,11 +749,8 @@ function App() {
                   <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Search</label>
                   <input
                     type="text"
-                    defaultValue={filters.search}
-                    onChange={e => {
-                      const value = e.target.value;
-                      setTimeout(() => setFilters(prev => ({ ...prev, search: value })), 300);
-                    }}
+                    value={searchDraft}
+                    onChange={e => setSearchDraft(e.target.value)}
                     placeholder="Search papers..."
                     className="w-full px-3 py-2.5 text-sm bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg"
                   />
