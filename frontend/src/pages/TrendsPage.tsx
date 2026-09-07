@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, type FC } from 'react';
-import type { Paper } from '@/types';
+import type { StatsPaper } from '@/types';
 import { getScoreColor, fetchStats } from '@/utils';
 import { ChartComponent } from '@/components/charts';
 import { ScoreBreakdownChips } from '@/components/ui';
@@ -26,7 +26,7 @@ const categoryColors = [
 ];
 
 export const TrendsPage: FC = () => {
-  const [allPapers, setAllPapers] = useState<Paper[] | null>(null);
+  const [allPapers, setAllPapers] = useState<StatsPaper[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadAttempt, setReloadAttempt] = useState(0);

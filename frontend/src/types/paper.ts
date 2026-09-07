@@ -21,5 +21,17 @@ export interface PapersResponse {
 }
 
 export interface StatsResponse {
-  papers: Paper[];
+  papers: StatsPaper[];
 }
+
+export type StatsPaper = Pick<
+  Paper,
+  | 'id'
+  | 'title'
+  | 'authors'
+  | 'date'
+  | 'reasoning_category'
+  | 'arxiv_link'
+  | 'excitement_score'
+  | 'score_breakdown'
+>;
