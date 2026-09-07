@@ -688,7 +688,7 @@ function App() {
           <div key={activePage} className="animate-fade-in max-w-[1600px] mx-auto">
             {activePage === 'papers' && <PapersPageContent />}
 
-            {activePage === 'trends' && <TrendsPage papers={papers} />}
+            {activePage === 'trends' && <TrendsPage />}
 
             {activePage === 'lists' && (
               <ReadingListsPage

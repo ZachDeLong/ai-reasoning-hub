@@ -19,8 +19,8 @@ export const fetchCategories = async (signal?: AbortSignal): Promise<string[]> =
   return response.json();
 };
 
-export const fetchStats = async (): Promise<StatsResponse> => {
-  const response = await fetch('/api/papers/stats');
+export const fetchStats = async (signal?: AbortSignal): Promise<StatsResponse> => {
+  const response = await fetch('/api/papers/stats', { signal });
   if (!response.ok) {
     throw new Error('Failed to fetch stats');
   }

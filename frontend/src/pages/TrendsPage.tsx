@@ -4,10 +4,6 @@ import { getScoreColor, fetchStats } from '@/utils';
 import { ChartComponent } from '@/components/charts';
 import { ScoreBreakdownChips } from '@/components/ui';
 
-interface TrendsPageProps {
-  papers: Paper[];
-}
-
 const chartColors = {
   amber: 'rgb(217, 119, 6)',
   teal: 'rgb(15, 118, 110)',
@@ -29,24 +25,33 @@ const categoryColors = [
   chartColors.green, chartColors.orange, chartColors.red, chartColors.stone,
 ];
 
-export const TrendsPage: FC<TrendsPageProps> = ({ papers: initialPapers }) => {
-  const [allPapers, setAllPapers] = useState<Paper[]>([]);
+export const TrendsPage: FC = () => {
+  const [allPapers, setAllPapers] = useState<Paper[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadAttempt, setReloadAttempt] = useState(0);
 
   useEffect(() => {
-    fetchStats()
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetchStats(controller.signal)
       .then(data => {
-        setAllPapers(data.papers || []);
-        setLoading(false);
+        setAllPapers(data.papers ?? []);
       })
       .catch(err => {
-        console.error('Failed to fetch stats:', err);
-        setAllPapers(initialPapers);
-        setLoading(false);
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setError(err instanceof Error ? err.message : 'Failed to fetch trends');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
-  }, [initialPapers]);
 
-  const papers = allPapers.length > 0 ? allPapers : initialPapers;
+    return () => controller.abort();
+  }, [reloadAttempt]);
+
+  const papers = allPapers ?? [];
 
   const stats = useMemo(() => {
     if (!papers.length) return null;
@@ -151,10 +156,49 @@ export const TrendsPage: FC<TrendsPageProps> = ({ papers: initialPapers }) => {
     };
   }, [papers]);
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-stone-500">{loading ? 'Loading all papers...' : 'Loading trends...'}</p>
+        <p className="text-stone-500">Loading all papers...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-5"
+        >
+          <h1 className="font-serif text-xl font-bold text-red-900 dark:text-red-100">
+            Trends unavailable
+          </h1>
+          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+            {error}. No partial statistics are being shown.
+          </p>
+          <button
+            type="button"
+            onClick={() => setReloadAttempt(attempt => attempt + 1)}
+            className="mt-4 rounded-md bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-red-800"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <h1 className="font-serif text-2xl font-bold text-stone-900 dark:text-stone-100 mb-6">
+          Trends & Insights
+        </h1>
+        <div className="rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-8 text-center">
+          <p className="font-medium text-stone-700 dark:text-stone-300">No papers available yet</p>
+          <p className="mt-1 text-sm text-stone-500">Trends will appear after papers are added.</p>
+        </div>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchCategories, fetchPapers } from './api';
+import { fetchCategories, fetchPapers, fetchStats } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -45,6 +45,22 @@ describe('fetchCategories', () => {
 
     await expect(fetchCategories(controller.signal)).resolves.toEqual([]);
     expect(fetchMock).toHaveBeenCalledWith('/api/categories', {
+      signal: controller.signal,
+    });
+  });
+});
+
+describe('fetchStats', () => {
+  it('forwards cancellation to the all-papers statistics request', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"papers":[]}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchStats(controller.signal)).resolves.toEqual({ papers: [] });
+    expect(fetchMock).toHaveBeenCalledWith('/api/papers/stats', {
       signal: controller.signal,
     });
   });
