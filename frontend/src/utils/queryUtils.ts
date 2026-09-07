@@ -1,5 +1,26 @@
 import type { Filters } from '@/types';
 
+const parseSafeInteger = (value: string | null): number | null => {
+  if (value === null || value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+};
+
+export const parsePageParam = (value: string | null): number => {
+  const parsed = parseSafeInteger(value);
+  return parsed !== null && parsed >= 0 ? parsed : 0;
+};
+
+export const parseMinScoreParam = (value: string | null, fallback: number): number => {
+  const parsed = parseSafeInteger(value);
+  return parsed !== null && parsed >= 0 && parsed <= 7 ? parsed : fallback;
+};
+
+export const parseSortParam = (
+  value: string | null,
+  fallback: Filters['sort'],
+): Filters['sort'] => value === 'newest' || value === 'score' ? value : fallback;
+
 export const buildQueryString = (filters: Filters, page: number): string => {
   const params = new URLSearchParams();
 

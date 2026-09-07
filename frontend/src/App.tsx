@@ -7,6 +7,9 @@ import {
   buildQueryString,
   getScoreColor,
   fetchBibtex,
+  parseMinScoreParam,
+  parsePageParam,
+  parseSortParam,
   readJsonStorage,
   readStorageValue,
   writeJsonStorage,
@@ -246,18 +249,18 @@ function App() {
       dateTo: params.get('dateTo') || '',
       selectedCategories: new Set(params.getAll('category')),
       onlySummarized: params.get('onlySummarized') === 'true',
-      minScore: parseInt(params.get('minScore') || defaultMinScore.toString(), 10),
+      minScore: parseMinScoreParam(params.get('minScore'), defaultMinScore),
       onlyScored: params.get('onlyScored') === 'true',
       onlyBookmarked: false,
       selectedList: null,
-      sort: (params.get('sort') || defaultSort) as 'newest' | 'score',
+      sort: parseSortParam(params.get('sort'), defaultSort as Filters['sort']),
     };
   };
 
   const [filters, setFilters] = useState<Filters>(getInitialFilters);
   const [currentPage, setCurrentPage] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return parseInt(params.get('page') || '0', 10);
+    return parsePageParam(params.get('page'));
   });
 
   useEffect(() => {
@@ -287,6 +290,11 @@ function App() {
       fetch(`/api/papers?${queryString}`)
         .then(res => res.json())
         .then(data => {
+          const lastPage = Math.max(0, data.total_pages - 1);
+          if (currentPage > lastPage) {
+            setCurrentPage(lastPage);
+            return;
+          }
           setPapers(data.papers);
           setTotalPages(data.total_pages);
           setResultsCount(data.results_count);
@@ -301,11 +309,16 @@ function App() {
     return () => clearTimeout(timer);
   }, [filters, currentPage]);
 
-  const filtersForPageReset = { ...filters, search: undefined };
+  const pageResetKey = JSON.stringify({
+    ...filters,
+    selectedCategories: [...filters.selectedCategories].sort(),
+  });
+  const previousPageResetKey = useRef(pageResetKey);
   useEffect(() => {
+    if (previousPageResetKey.current === pageResetKey) return;
+    previousPageResetKey.current = pageResetKey;
     setCurrentPage(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(filtersForPageReset), filters.search]);
+  }, [pageResetKey]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
