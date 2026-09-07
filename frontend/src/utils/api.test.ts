@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchCategories, fetchPapers, fetchStats, parseStatsResponse } from './api';
+import { fetchCategories, fetchPapers, fetchPapersByArxivIds, fetchStats, parseStatsResponse } from './api';
 
 const statsPaper = {
   id: 1,
@@ -11,6 +11,15 @@ const statsPaper = {
   arxiv_link: 'https://arxiv.org/abs/2609.00001',
   excitement_score: 6,
   score_breakdown: 'Novelty: 2, Utility: 1, Results: 2, Access: 1',
+};
+
+const fullPaper = {
+  ...statsPaper,
+  arxiv_id: '2609.00001',
+  tldr: 'Short summary',
+  summary_md: 'Long summary',
+  excitement_reasoning: 'Promising work',
+  last_scored_at: '2026-09-07T12:00:00Z',
 };
 
 afterEach(() => {
@@ -42,6 +51,33 @@ describe('fetchPapers', () => {
     )));
 
     await expect(fetchPapers('page=0')).rejects.toThrow('Failed to fetch papers');
+  });
+});
+
+describe('fetchPapersByArxivIds', () => {
+  it('posts saved IDs and forwards cancellation', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      papers: [fullPaper],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchPapersByArxivIds(['2609.00001'], controller.signal)).resolves.toEqual([fullPaper]);
+    expect(fetchMock).toHaveBeenCalledWith('/api/papers/by-arxiv-ids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arxiv_ids: ['2609.00001'] }),
+      signal: controller.signal,
+    });
+  });
+
+  it('rejects malformed successful responses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    await expect(fetchPapersByArxivIds(['2609.00001'])).rejects.toThrow('Invalid reading-list response');
   });
 });
 

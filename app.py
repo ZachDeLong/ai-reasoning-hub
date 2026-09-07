@@ -75,6 +75,7 @@ ALLOWED_SORT_OPTIONS = {
 
 # Strict arxiv ID pattern (e.g., 2401.12345 or 2401.12345v1)
 ARXIV_ID_PATTERN = re.compile(r'^\d{4}\.\d{4,5}(v\d+)?$')
+MAX_READING_LIST_PAPERS = 500
 
 def load_rows(
     search: str = "",
@@ -228,6 +229,40 @@ def get_papers():
         date_to=date_to
     )
     return jsonify(data)
+
+@app.route('/api/papers/by-arxiv-ids', methods=['POST'])
+@limiter.limit(RATE_LIMIT_PAPERS)
+def get_papers_by_arxiv_ids():
+    """Fetch complete paper records for locally saved reading-list IDs."""
+    payload = request.get_json(silent=True)
+    arxiv_ids = payload.get('arxiv_ids') if isinstance(payload, dict) else None
+    if not isinstance(arxiv_ids, list):
+        return jsonify({"error": "arxiv_ids must be an array"}), 400
+    if len(arxiv_ids) > MAX_READING_LIST_PAPERS:
+        return jsonify({"error": f"At most {MAX_READING_LIST_PAPERS} arxiv_ids are allowed"}), 400
+    if any(not isinstance(arxiv_id, str) or not arxiv_id or len(arxiv_id) > 64 for arxiv_id in arxiv_ids):
+        return jsonify({"error": "arxiv_ids must contain non-empty strings of at most 64 characters"}), 400
+
+    unique_ids = list(dict.fromkeys(arxiv_ids))
+    if not unique_ids:
+        return jsonify({"papers": []})
+
+    placeholders = ','.join('?' for _ in unique_ids)
+    with get_db_connection() as conn:
+        rows = conn.execute(f"""
+            SELECT
+              id, COALESCE(arxiv_id, '') AS arxiv_id, title, authors, date,
+              COALESCE(reasoning_category, '') AS reasoning_category,
+              arxiv_link, COALESCE(tldr, '') AS tldr,
+              COALESCE(summary_md, '') AS summary_md,
+              COALESCE(excitement_score, 0) AS excitement_score,
+              COALESCE(excitement_reasoning, '') AS excitement_reasoning,
+              COALESCE(score_breakdown, '') AS score_breakdown,
+              COALESCE(last_scored_at, '') AS last_scored_at
+            FROM papers
+            WHERE arxiv_id IN ({placeholders})
+        """, unique_ids).fetchall()
+    return jsonify({"papers": [dict(row) for row in rows]})
 
 @app.route('/api/papers/stats')
 @limiter.limit(RATE_LIMIT_AUTHOR_COUNTS)

@@ -63,6 +63,62 @@ class TestPapersEndpoint:
         assert response.status_code == 200
 
 
+class TestReadingListPapersEndpoint:
+    """Tests for fetching complete records behind locally saved IDs."""
+
+    def test_returns_only_requested_papers(self, client, tmp_path, monkeypatch):
+        database_path = tmp_path / 'papers.db'
+        with app_module.sqlite3.connect(database_path) as conn:
+            conn.execute("""
+                CREATE TABLE papers (
+                    id INTEGER PRIMARY KEY,
+                    arxiv_id TEXT,
+                    title TEXT,
+                    authors TEXT,
+                    date TEXT,
+                    reasoning_category TEXT,
+                    arxiv_link TEXT,
+                    tldr TEXT,
+                    summary_md TEXT,
+                    excitement_score INTEGER,
+                    excitement_reasoning TEXT,
+                    score_breakdown TEXT,
+                    last_scored_at TEXT
+                )
+            """)
+            conn.executemany(
+                """
+                INSERT INTO papers (
+                    id, arxiv_id, title, authors, date, reasoning_category,
+                    arxiv_link, tldr, summary_md, excitement_score,
+                    excitement_reasoning, score_breakdown, last_scored_at
+                ) VALUES (?, ?, ?, ?, '', '', '', '', '', 0, '', '', '')
+                """,
+                [
+                    (1, '2609.00001', 'Saved paper', 'Ada Lovelace'),
+                    (2, '2609.00002', 'Unrelated paper', 'Grace Hopper'),
+                ],
+            )
+
+        monkeypatch.setattr(app_module, 'DB_PATH', str(database_path))
+        response = client.post('/api/papers/by-arxiv-ids', json={
+            'arxiv_ids': ['2609.00001', '2609.00001'],
+        })
+
+        assert response.status_code == 200
+        papers = response.get_json()['papers']
+        assert len(papers) == 1
+        assert papers[0]['id'] == 1
+        assert papers[0]['arxiv_id'] == '2609.00001'
+        assert papers[0]['title'] == 'Saved paper'
+        assert papers[0]['authors'] == 'Ada Lovelace'
+
+    @pytest.mark.parametrize('payload', [None, {}, {'arxiv_ids': '2609.00001'}, {'arxiv_ids': ['']}])
+    def test_rejects_malformed_id_requests(self, client, payload):
+        response = client.post('/api/papers/by-arxiv-ids', json=payload)
+        assert response.status_code == 400
+
+
 class TestCategoriesEndpoint:
     """Tests for /api/categories endpoint."""
 

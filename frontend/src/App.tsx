@@ -237,7 +237,7 @@ function App() {
   const [activePage, setActivePage] = useState<NavItemId>('papers');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedPaper, setExpandedPaper] = useState<Paper | null>(null);
 
   const { bookmarks, toggleBookmark, isBookmarked, clearBookmarks } = useBookmarks();
   const { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount, clearLists } = useReadingLists();
@@ -382,7 +382,7 @@ function App() {
           case 'Enter':
             e.preventDefault();
             if (paper) {
-              setExpandedId(expandedId === paper.id ? null : paper.id);
+              setExpandedPaper(expandedPaper?.id === paper.id ? null : paper);
             }
             break;
           case 's':
@@ -399,14 +399,14 @@ function App() {
             break;
           case 'Escape':
             e.preventDefault();
-            setExpandedId(null);
+            setExpandedPaper(null);
             break;
         }
       };
 
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [focusedIndex, filteredPapers, expandedId]);
+    }, [focusedIndex, filteredPapers, expandedPaper]);
 
     useEffect(() => {
       setFocusedIndex(0);
@@ -468,7 +468,7 @@ function App() {
                     onSelectList={addToList}
                     isFocused={index === focusedIndex}
                     onSelect={() => setFocusedIndex(index)}
-                    onToggleExpand={() => setExpandedId(paper.id)}
+                    onToggleExpand={() => setExpandedPaper(paper)}
                   />
                 </div>
               ))}
@@ -700,9 +700,8 @@ function App() {
             {activePage === 'lists' && (
               <ReadingListsPage
                 readingLists={readingLists}
-                papers={papers}
                 onRemoveFromList={removeFromList}
-                onExpandPaper={(id) => setExpandedId(id)}
+                onExpandPaper={setExpandedPaper}
               />
             )}
 
@@ -810,18 +809,15 @@ function App() {
       <div className="md:hidden h-16" />
 
       {/* Global Paper Detail Modal */}
-      {expandedId && (() => {
-        const expandedPaper = papers.find(p => p.id === expandedId);
-        if (!expandedPaper) return null;
-        return (
+      {expandedPaper && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
             <div
               className="fixed inset-0 bg-black/70"
-              onClick={() => setExpandedId(null)}
+              onClick={() => setExpandedPaper(null)}
             />
             <div
               className="relative min-h-screen flex items-start justify-center p-4 pt-12"
-              onClick={() => setExpandedId(null)}
+              onClick={() => setExpandedPaper(null)}
             >
               <div
                 className="relative w-full max-w-6xl bg-white dark:bg-stone-900 rounded-xl shadow-2xl animate-fade-in overflow-hidden"
@@ -850,7 +846,7 @@ function App() {
                       <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">{expandedPaper.authors}</p>
                     </div>
                     <button
-                      onClick={() => setExpandedId(null)}
+                      onClick={() => setExpandedPaper(null)}
                       className="p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -934,8 +930,7 @@ function App() {
               </div>
             </div>
           </div>
-        );
-      })()}
+      )}
     </div>
   );
 }

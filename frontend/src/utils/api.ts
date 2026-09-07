@@ -1,4 +1,4 @@
-import type { PapersResponse, StatsPaper, StatsResponse } from '@/types';
+import type { Paper, PapersResponse, StatsPaper, StatsResponse } from '@/types';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -40,6 +40,27 @@ export const fetchPapers = async (
     throw new Error('Failed to fetch papers');
   }
   return response.json();
+};
+
+export const fetchPapersByArxivIds = async (
+  arxivIds: string[],
+  signal?: AbortSignal,
+): Promise<Paper[]> => {
+  const response = await fetch('/api/papers/by-arxiv-ids', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ arxiv_ids: arxivIds }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch reading-list papers');
+  }
+
+  const value: unknown = await response.json();
+  if (!isRecord(value) || !Array.isArray(value.papers)) {
+    throw new Error('Invalid reading-list response');
+  }
+  return value.papers as Paper[];
 };
 
 export const fetchCategories = async (signal?: AbortSignal): Promise<string[]> => {
