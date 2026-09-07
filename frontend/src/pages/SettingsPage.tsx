@@ -1,6 +1,46 @@
 import { useState, type FC } from 'react';
 import type { ReadingLists } from '@/hooks';
 
+interface ConfirmClearButtonProps {
+  itemLabel: string;
+  onConfirm: () => void;
+}
+
+const ConfirmClearButton: FC<ConfirmClearButtonProps> = ({ itemLabel, onConfirm }) => {
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  if (!isConfirming) {
+    return (
+      <button
+        onClick={() => setIsConfirming(true)}
+        className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+      >
+        Clear All
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5" role="group" aria-label={`Confirm clearing ${itemLabel}`}>
+      <button
+        onClick={() => setIsConfirming(false)}
+        className="px-2.5 py-1.5 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={() => {
+          onConfirm();
+          setIsConfirming(false);
+        }}
+        className="px-2.5 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+      >
+        Confirm clear
+      </button>
+    </div>
+  );
+};
+
 interface SettingsPageProps {
   themePreference: string;
   setThemePreference: (pref: string) => void;
@@ -181,24 +221,14 @@ export const SettingsPage: FC<SettingsPageProps> = ({
               <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Bookmarks</p>
               <p className="text-xs text-stone-500 dark:text-stone-400">{bookmarkCount} papers saved</p>
             </div>
-            <button
-              onClick={onClearBookmarks}
-              className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-            >
-              Clear All
-            </button>
+            <ConfirmClearButton itemLabel="bookmarks" onConfirm={onClearBookmarks} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">Reading Lists</p>
               <p className="text-xs text-stone-500 dark:text-stone-400">Your curated paper collections</p>
             </div>
-            <button
-              onClick={onClearLists}
-              className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-            >
-              Clear All
-            </button>
+            <ConfirmClearButton itemLabel="reading lists" onConfirm={onClearLists} />
           </div>
           <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
             <div>
