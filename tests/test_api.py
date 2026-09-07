@@ -3,6 +3,8 @@
 import pytest
 import re
 
+import app as app_module
+
 
 class TestPapersEndpoint:
     """Tests for /api/papers endpoint."""
@@ -166,6 +168,68 @@ class TestExportEndpoint:
         assert 'arxiv_id' in content
         assert 'title' in content
         assert 'authors' in content
+
+    def test_export_uses_the_configured_export_limit(self, client, monkeypatch):
+        """CSV export should not inherit the much smaller UI page size."""
+        captured = {}
+
+        def fake_load_rows(**kwargs):
+            captured.update(kwargs)
+            return {"papers": [], "total_pages": 1, "results_count": 0}
+
+        monkeypatch.setattr(app_module, 'load_rows', fake_load_rows)
+
+        response = client.get('/api/export/csv')
+
+        assert response.status_code == 200
+        assert captured['page_size'] == app_module.EXPORT_MAX_PAPERS
+
+
+class TestLoadRows:
+    """Tests for the shared paginated database loader."""
+
+    def test_page_size_controls_limit_offset_and_page_count(self, tmp_path, monkeypatch):
+        database_path = tmp_path / 'papers.db'
+        with app_module.sqlite3.connect(database_path) as conn:
+            conn.execute("""
+                CREATE TABLE papers (
+                    id INTEGER PRIMARY KEY,
+                    arxiv_id TEXT,
+                    title TEXT,
+                    authors TEXT,
+                    date TEXT,
+                    reasoning_category TEXT,
+                    arxiv_link TEXT,
+                    tldr TEXT,
+                    summary_md TEXT,
+                    excitement_score INTEGER,
+                    excitement_reasoning TEXT,
+                    score_breakdown TEXT,
+                    last_scored_at TEXT
+                )
+            """)
+            conn.executemany(
+                """
+                INSERT INTO papers (
+                    id, arxiv_id, title, authors, date, reasoning_category,
+                    arxiv_link, tldr, summary_md, excitement_score,
+                    excitement_reasoning, score_breakdown, last_scored_at
+                ) VALUES (?, ?, ?, '', ?, '', '', '', '', 0, '', '', '')
+                """,
+                [
+                    (1, '2401.00001', 'First', '2026-01-01'),
+                    (2, '2401.00002', 'Second', '2026-01-02'),
+                    (3, '2401.00003', 'Third', '2026-01-03'),
+                ],
+            )
+
+        monkeypatch.setattr(app_module, 'DB_PATH', str(database_path))
+
+        result = app_module.load_rows(page=1, page_size=2)
+
+        assert result['results_count'] == 3
+        assert result['total_pages'] == 2
+        assert [paper['id'] for paper in result['papers']] == [1]
 
 
 class TestArxivIdValidation:

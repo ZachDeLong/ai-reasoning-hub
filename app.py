@@ -86,7 +86,8 @@ def load_rows(
     sort: str = "newest",
     page: int = 0,
     date_from: str = "",
-    date_to: str = ""
+    date_to: str = "",
+    page_size: int = CARDS_PER_PAGE
 ) -> dict:
     """
     Load papers from database with filtering, sorting, and pagination.
@@ -102,6 +103,7 @@ def load_rows(
         page: Page number (0-indexed)
         date_from: Filter papers from this date (YYYY-MM-DD)
         date_to: Filter papers until this date (YYYY-MM-DD)
+        page_size: Maximum rows per page
 
     Returns:
         Dict with 'papers', 'total_pages', and 'results_count'
@@ -162,11 +164,11 @@ def load_rows(
         except sqlite3.Error as e:
             logger.error(f"Database error counting papers: {e}")
 
-        total_pages = max(1, ceil(total_papers / CARDS_PER_PAGE))
+        total_pages = max(1, ceil(total_papers / page_size))
 
         # Get Paginated Data
         order_clause = ALLOWED_SORT_OPTIONS[sort]
-        offset = page * CARDS_PER_PAGE
+        offset = page * page_size
 
         data_sql = f"""
         SELECT
@@ -182,7 +184,7 @@ def load_rows(
         ORDER BY {order_clause}
         LIMIT ? OFFSET ?
         """
-        query_params = params + [CARDS_PER_PAGE, offset]
+        query_params = params + [page_size, offset]
 
         try:
             rows = [dict(r) for r in conn.execute(data_sql, query_params).fetchall()]
@@ -337,11 +339,12 @@ def export_csv():
     only_scored = request.args.get('onlyScored', 'false') == 'true'
     sort = request.args.get('sort', 'score')
 
-    # Get all results without pagination (limit to 1000 for safety)
+    # Export more than one UI page while retaining a configured safety cap.
     data = load_rows(
         search=search, author=author, cats=cats,
         only_summarized=only_summarized, min_score=min_score,
-        only_scored=only_scored, sort=sort, page=0
+        only_scored=only_scored, sort=sort, page=0,
+        page_size=EXPORT_MAX_PAPERS
     )
 
     # Create CSV
