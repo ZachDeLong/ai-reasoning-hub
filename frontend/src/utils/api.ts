@@ -31,6 +31,16 @@ export const parseStatsResponse = (value: unknown): StatsResponse => {
   return { papers: value.papers };
 };
 
+export const parseCategoriesResponse = (value: unknown): string[] => {
+  if (!Array.isArray(value) || !value.every(category =>
+    typeof category === 'string' && category.trim().length > 0
+  )) {
+    throw new Error('Invalid categories response');
+  }
+
+  return [...new Set(value.map(category => category.trim()))];
+};
+
 export const fetchPapers = async (
   queryString: string,
   signal?: AbortSignal,
@@ -68,7 +78,7 @@ export const fetchCategories = async (signal?: AbortSignal): Promise<string[]> =
   if (!response.ok) {
     throw new Error('Failed to fetch categories');
   }
-  return response.json();
+  return parseCategoriesResponse(await response.json());
 };
 
 export const fetchStats = async (signal?: AbortSignal): Promise<StatsResponse> => {

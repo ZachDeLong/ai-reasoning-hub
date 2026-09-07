@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchCategories, fetchPapers, fetchPapersByArxivIds, fetchStats, parseStatsResponse } from './api';
+import {
+  fetchCategories,
+  fetchPapers,
+  fetchPapersByArxivIds,
+  fetchStats,
+  parseCategoriesResponse,
+  parseStatsResponse,
+} from './api';
 
 const statsPaper = {
   id: 1,
@@ -94,6 +101,33 @@ describe('fetchCategories', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/categories', {
       signal: controller.signal,
     });
+  });
+
+  it('rejects malformed successful responses instead of passing them to the filter UI', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ categories: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    await expect(fetchCategories()).rejects.toThrow('Invalid categories response');
+  });
+});
+
+describe('parseCategoriesResponse', () => {
+  it('normalizes whitespace and removes duplicate categories', () => {
+    expect(parseCategoriesResponse([' Reasoning ', 'Planning', 'Reasoning'])).toEqual([
+      'Reasoning',
+      'Planning',
+    ]);
+  });
+
+  it.each([
+    null,
+    { categories: ['Reasoning'] },
+    ['Reasoning', 42],
+    ['Reasoning', '   '],
+  ])('rejects invalid category payload %#', payload => {
+    expect(() => parseCategoriesResponse(payload)).toThrow('Invalid categories response');
   });
 });
 

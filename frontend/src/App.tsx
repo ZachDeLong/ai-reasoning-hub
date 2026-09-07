@@ -291,18 +291,26 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [papersError, setPapersError] = useState<string | null>(null);
   const [reloadAttempt, setReloadAttempt] = useState(0);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesAttempt, setCategoriesAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    setCategoriesLoading(true);
+    setCategoriesError(null);
     fetchCategories(controller.signal)
-      .then(data => setAllCategories(data))
+      .then(data => {
+        setAllCategories(data);
+        setCategoriesLoading(false);
+      })
       .catch(err => {
-        if (!(err instanceof Error && err.name === 'AbortError')) {
-          console.error("Failed to fetch categories:", err);
-        }
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setCategoriesError(err instanceof Error ? err.message : 'Failed to fetch categories');
+        setCategoriesLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [categoriesAttempt]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -592,28 +600,50 @@ function App() {
                 </SidebarSection>
 
                 <SidebarSection title="Topics" defaultOpen={false}>
-                  <div className="flex flex-wrap gap-1">
-                    {allCategories.map(cat => (
+                  {categoriesError ? (
+                    <div
+                      role="alert"
+                      className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+                    >
+                      <p>Could not load topics.</p>
                       <button
-                        key={cat}
-                        onClick={() => {
-                          setFilters(prev => {
-                            const newCats = new Set(prev.selectedCategories);
-                            if (newCats.has(cat)) newCats.delete(cat);
-                            else newCats.add(cat);
-                            return { ...prev, selectedCategories: newCats };
-                          });
-                        }}
-                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                          filters.selectedCategories.has(cat)
-                            ? 'bg-amber-700 text-white'
-                            : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
-                        }`}
+                        type="button"
+                        onClick={() => setCategoriesAttempt(attempt => attempt + 1)}
+                        className="mt-1 font-medium underline underline-offset-2 hover:no-underline"
                       >
-                        {cat}
+                        Retry
                       </button>
-                    ))}
-                  </div>
+                    </div>
+                  ) : categoriesLoading ? (
+                    <p role="status" className="text-xs text-stone-500 dark:text-stone-400">
+                      Loading topics…
+                    </p>
+                  ) : allCategories.length === 0 ? (
+                    <p className="text-xs text-stone-500 dark:text-stone-400">No topics available.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {allCategories.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setFilters(prev => {
+                              const newCats = new Set(prev.selectedCategories);
+                              if (newCats.has(cat)) newCats.delete(cat);
+                              else newCats.add(cat);
+                              return { ...prev, selectedCategories: newCats };
+                            });
+                          }}
+                          className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                            filters.selectedCategories.has(cat)
+                              ? 'bg-amber-700 text-white'
+                              : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </SidebarSection>
 
                 <SidebarSection title="Reading Lists" defaultOpen={false}>
