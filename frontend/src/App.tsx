@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type FC } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type FC } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { Paper, Filters } from '@/types';
@@ -15,6 +15,7 @@ import {
   readJsonStorage,
   readStorageValue,
   writeJsonStorage,
+  writeClipboardText,
   writeStorageValue,
 } from '@/utils';
 import { useBookmarks, useReadingLists } from '@/hooks';
@@ -52,6 +53,7 @@ interface PaperGridCardProps {
   isFocused: boolean;
   onSelect: () => void;
   onToggleExpand: () => void;
+  onCopyCitation: (paper: Paper) => void;
 }
 
 const PaperGridCard: FC<PaperGridCardProps> = ({
@@ -64,6 +66,7 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
   isFocused,
   onSelect,
   onToggleExpand,
+  onCopyCitation,
 }) => {
   const score = paper.excitement_score || 0;
   const cardRef = useRef<HTMLElement>(null);
@@ -73,15 +76,6 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
       cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [isFocused]);
-
-  const handleCite = async () => {
-    try {
-      const bibtex = await fetchBibtex(paper.arxiv_id);
-      await navigator.clipboard.writeText(bibtex);
-    } catch (e) {
-      console.error('Failed to copy BibTeX:', e);
-    }
-  };
 
   return (
     <article
@@ -151,7 +145,7 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
             </a>
             {paper.arxiv_id && (
               <button
-                onClick={(e) => { e.stopPropagation(); handleCite(); }}
+                onClick={(e) => { e.stopPropagation(); onCopyCitation(paper); }}
                 className="px-2 py-1.5 text-xs text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
               >
                 Cite
@@ -238,6 +232,44 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [expandedPaper, setExpandedPaper] = useState<Paper | null>(null);
+  const [copyNotice, setCopyNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+  const copyNoticeTimeout = useRef<number | null>(null);
+
+  const showCopyNotice = useCallback((kind: 'success' | 'error', message: string) => {
+    if (copyNoticeTimeout.current !== null) {
+      window.clearTimeout(copyNoticeTimeout.current);
+    }
+    setCopyNotice({ kind, message });
+    copyNoticeTimeout.current = window.setTimeout(() => {
+      setCopyNotice(null);
+      copyNoticeTimeout.current = null;
+    }, 2500);
+  }, []);
+
+  useEffect(() => () => {
+    if (copyNoticeTimeout.current !== null) {
+      window.clearTimeout(copyNoticeTimeout.current);
+    }
+  }, []);
+
+  const copyWithFeedback = useCallback(async (
+    getText: () => string | Promise<string>,
+    successMessage: string,
+    failureMessage: string,
+  ) => {
+    try {
+      await writeClipboardText(await getText());
+      showCopyNotice('success', successMessage);
+    } catch {
+      showCopyNotice('error', failureMessage);
+    }
+  }, [showCopyNotice]);
+
+  const copyCitation = useCallback((paper: Paper) => copyWithFeedback(
+    () => fetchBibtex(paper.arxiv_id),
+    'BibTeX copied.',
+    'Could not copy BibTeX.',
+  ), [copyWithFeedback]);
 
   const { bookmarks, toggleBookmark, isBookmarked, clearBookmarks } = useBookmarks();
   const { readingLists, addToList, removeFromList, getListForPaper, getListNames, getListCount, clearLists } = useReadingLists();
@@ -477,6 +509,7 @@ function App() {
                     isFocused={index === focusedIndex}
                     onSelect={() => setFocusedIndex(index)}
                     onToggleExpand={() => setExpandedPaper(paper)}
+                    onCopyCitation={copyCitation}
                   />
                 </div>
               ))}
@@ -685,7 +718,11 @@ function App() {
                     Export CSV
                   </button>
                   <button
-                    onClick={() => navigator.clipboard.writeText(window.location.href)}
+                    onClick={() => void copyWithFeedback(
+                      () => window.location.href,
+                      'Link copied.',
+                      'Could not copy link.',
+                    )}
                     className="w-full px-2.5 py-1.5 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-md transition-colors"
                   >
                     Share Link
@@ -838,6 +875,21 @@ function App() {
 
       <div className="md:hidden h-16" />
 
+      {copyNotice && (
+        <div
+          role={copyNotice.kind === 'error' ? 'alert' : 'status'}
+          aria-live={copyNotice.kind === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+          className={`fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-lg border px-4 py-2 text-sm font-medium shadow-lg md:bottom-6 ${
+            copyNotice.kind === 'error'
+              ? 'border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200'
+              : 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+          }`}
+        >
+          {copyNotice.message}
+        </div>
+      )}
+
       {/* Global Paper Detail Modal */}
       {expandedPaper && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -927,10 +979,7 @@ function App() {
                         View on arXiv →
                       </a>
                       <button
-                        onClick={async () => {
-                          const bibtex = await fetchBibtex(expandedPaper.arxiv_id);
-                          await navigator.clipboard.writeText(bibtex);
-                        }}
+                        onClick={() => void copyCitation(expandedPaper)}
                         className="px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
                       >
                         Copy BibTeX
