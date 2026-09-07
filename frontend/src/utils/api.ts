@@ -1,15 +1,18 @@
 import type { PapersResponse, StatsResponse } from '@/types';
 
-export const fetchPapers = async (queryString: string): Promise<PapersResponse> => {
-  const response = await fetch(`/api/papers?${queryString}`);
+export const fetchPapers = async (
+  queryString: string,
+  signal?: AbortSignal,
+): Promise<PapersResponse> => {
+  const response = await fetch(`/api/papers?${queryString}`, { signal });
   if (!response.ok) {
     throw new Error('Failed to fetch papers');
   }
   return response.json();
 };
 
-export const fetchCategories = async (): Promise<string[]> => {
-  const response = await fetch('/api/categories');
+export const fetchCategories = async (signal?: AbortSignal): Promise<string[]> => {
+  const response = await fetch('/api/categories', { signal });
   if (!response.ok) {
     throw new Error('Failed to fetch categories');
   }

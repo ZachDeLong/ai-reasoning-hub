@@ -7,6 +7,8 @@ import {
   buildQueryString,
   getScoreColor,
   fetchBibtex,
+  fetchCategories,
+  fetchPapers,
   parseMinScoreParam,
   parsePageParam,
   parseSortParam,
@@ -274,21 +276,29 @@ function App() {
   const [totalPages, setTotalPages] = useState(1);
   const [resultsCount, setResultsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [papersError, setPapersError] = useState<string | null>(null);
+  const [reloadAttempt, setReloadAttempt] = useState(0);
 
   useEffect(() => {
-    fetch('/api/categories')
-      .then(res => res.json())
+    const controller = new AbortController();
+    fetchCategories(controller.signal)
       .then(data => setAllCategories(data))
-      .catch(err => console.error("Failed to fetch categories:", err));
+      .catch(err => {
+        if (!(err instanceof Error && err.name === 'AbortError')) {
+          console.error("Failed to fetch categories:", err);
+        }
+      });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     setIsLoading(true);
+    setPapersError(null);
     const queryString = buildQueryString(filters, currentPage);
 
     const timer = setTimeout(() => {
-      fetch(`/api/papers?${queryString}`)
-        .then(res => res.json())
+      fetchPapers(queryString, controller.signal)
         .then(data => {
           const lastPage = Math.max(0, data.total_pages - 1);
           if (currentPage > lastPage) {
@@ -301,13 +311,17 @@ function App() {
           setIsLoading(false);
         })
         .catch(err => {
-          console.error("Failed to fetch papers:", err);
+          if (err instanceof Error && err.name === 'AbortError') return;
+          setPapersError(err instanceof Error ? err.message : 'Failed to fetch papers');
           setIsLoading(false);
         });
     }, 10);
 
-    return () => clearTimeout(timer);
-  }, [filters, currentPage]);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [filters, currentPage, reloadAttempt]);
 
   const pageResetKey = JSON.stringify({
     ...filters,
@@ -410,7 +424,20 @@ function App() {
           )}
         </div>
 
-        {isLoading ? (
+        {papersError ? (
+          <div
+            role="alert"
+            className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 text-center dark:border-red-900 dark:bg-red-950/30"
+          >
+            <p className="text-sm text-red-700 dark:text-red-300">{papersError}</p>
+            <button
+              onClick={() => setReloadAttempt(attempt => attempt + 1)}
+              className="rounded-md bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-red-600"
+            >
+              Retry
+            </button>
+          </div>
+        ) : isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
             {[...Array(9)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
@@ -441,7 +468,7 @@ function App() {
           </div>
         )}
 
-        {totalPages > 1 && !isLoading && (
+        {totalPages > 1 && !isLoading && !papersError && (
           <div className="flex justify-center gap-4 mt-6 pt-4 border-t border-stone-200 dark:border-stone-800">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
