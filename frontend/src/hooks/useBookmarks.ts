@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { readJsonStorage, writeJsonStorage } from '@/utils/storage';
 
 interface UseBookmarksReturn {
   bookmarks: Set<string>;
@@ -9,12 +10,16 @@ interface UseBookmarksReturn {
 
 export const useBookmarks = (): UseBookmarksReturn => {
   const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('paper_bookmarks');
-    return saved ? new Set(JSON.parse(saved) as string[]) : new Set();
+    const saved = readJsonStorage(
+      'paper_bookmarks',
+      (value): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string'),
+      () => [],
+    );
+    return new Set(saved);
   });
 
   useEffect(() => {
-    localStorage.setItem('paper_bookmarks', JSON.stringify([...bookmarks]));
+    writeJsonStorage('paper_bookmarks', [...bookmarks]);
   }, [bookmarks]);
 
   const toggleBookmark = useCallback((arxivId: string) => {

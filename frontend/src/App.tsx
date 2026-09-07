@@ -3,7 +3,15 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { Paper, Filters } from '@/types';
 import type { NavItemId } from '@/constants';
-import { buildQueryString, getScoreColor, fetchBibtex } from '@/utils';
+import {
+  buildQueryString,
+  getScoreColor,
+  fetchBibtex,
+  readJsonStorage,
+  readStorageValue,
+  writeJsonStorage,
+  writeStorageValue,
+} from '@/utils';
 import { useBookmarks, useReadingLists } from '@/hooks';
 import { TopNav, MobileBottomNav, SidebarSection } from '@/components/navigation';
 import { ScoreBreakdownChips, ReadingListDropdown, PdfViewer } from '@/components/ui';
@@ -170,9 +178,11 @@ const PaperGridCard: FC<PaperGridCardProps> = ({
 };
 
 function App() {
-  const [themePreference, setThemePreference] = useState(() => {
-    return localStorage.getItem('themePreference') || 'system';
-  });
+  const [themePreference, setThemePreference] = useState<string>(() => readStorageValue(
+    'themePreference',
+    (value) => ['system', 'light', 'dark'].includes(value) ? value : undefined,
+    () => 'system',
+  ));
 
   const darkMode = useMemo(() => {
     if (themePreference === 'dark') return true;
@@ -186,29 +196,37 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('themePreference', themePreference);
+    writeStorageValue('themePreference', themePreference);
   }, [darkMode, themePreference]);
 
-  const [defaultSort, setDefaultSort] = useState(() => {
-    return localStorage.getItem('defaultSort') || 'score';
-  });
+  const [defaultSort, setDefaultSort] = useState<string>(() => readStorageValue(
+    'defaultSort',
+    (value) => ['score', 'newest'].includes(value) ? value : undefined,
+    () => 'score',
+  ));
   useEffect(() => {
-    localStorage.setItem('defaultSort', defaultSort);
+    writeStorageValue('defaultSort', defaultSort);
   }, [defaultSort]);
 
-  const [defaultMinScore, setDefaultMinScore] = useState(() => {
-    return parseInt(localStorage.getItem('defaultMinScore') || '0', 10);
-  });
+  const [defaultMinScore, setDefaultMinScore] = useState(() => readStorageValue(
+    'defaultMinScore',
+    (value) => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 7 ? parsed : undefined;
+    },
+    () => 0,
+  ));
   useEffect(() => {
-    localStorage.setItem('defaultMinScore', defaultMinScore.toString());
+    writeStorageValue('defaultMinScore', defaultMinScore.toString());
   }, [defaultMinScore]);
 
-  const [keyboardEnabled, setKeyboardEnabled] = useState(() => {
-    const saved = localStorage.getItem('keyboardEnabled');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
+  const [keyboardEnabled, setKeyboardEnabled] = useState(() => readJsonStorage(
+    'keyboardEnabled',
+    (value): value is boolean => typeof value === 'boolean',
+    () => true,
+  ));
   useEffect(() => {
-    localStorage.setItem('keyboardEnabled', JSON.stringify(keyboardEnabled));
+    writeJsonStorage('keyboardEnabled', keyboardEnabled);
   }, [keyboardEnabled]);
 
   const [activePage, setActivePage] = useState<NavItemId>('papers');
@@ -221,8 +239,6 @@ function App() {
 
   const getInitialFilters = (): Filters => {
     const params = new URLSearchParams(window.location.search);
-    const savedSort = localStorage.getItem('defaultSort') || 'score';
-    const savedMinScore = parseInt(localStorage.getItem('defaultMinScore') || '0', 10);
     return {
       search: params.get('search') || '',
       author: params.get('author') || '',
@@ -230,11 +246,11 @@ function App() {
       dateTo: params.get('dateTo') || '',
       selectedCategories: new Set(params.getAll('category')),
       onlySummarized: params.get('onlySummarized') === 'true',
-      minScore: parseInt(params.get('minScore') || savedMinScore.toString(), 10),
+      minScore: parseInt(params.get('minScore') || defaultMinScore.toString(), 10),
       onlyScored: params.get('onlyScored') === 'true',
       onlyBookmarked: false,
       selectedList: null,
-      sort: (params.get('sort') || savedSort) as 'newest' | 'score',
+      sort: (params.get('sort') || defaultSort) as 'newest' | 'score',
     };
   };
 

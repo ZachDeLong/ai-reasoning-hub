@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_LISTS } from '@/constants';
+import { readJsonStorage, writeJsonStorage } from '@/utils/storage';
 
 export type ReadingLists = Record<string, string[]>;
 
@@ -20,17 +21,21 @@ const createEmptyLists = (): ReadingLists => {
   }, {} as ReadingLists);
 };
 
+const isReadingLists = (value: unknown): value is ReadingLists => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  return Object.values(value).every(
+    (papers) => Array.isArray(papers) && papers.every((paperId) => typeof paperId === 'string'),
+  );
+};
+
 export const useReadingLists = (): UseReadingListsReturn => {
   const [readingLists, setReadingLists] = useState<ReadingLists>(() => {
-    const saved = localStorage.getItem('reading_lists');
-    if (saved) {
-      return JSON.parse(saved) as ReadingLists;
-    }
-    return createEmptyLists();
+    const saved = readJsonStorage('reading_lists', isReadingLists, () => ({}));
+    return { ...createEmptyLists(), ...saved };
   });
 
   useEffect(() => {
-    localStorage.setItem('reading_lists', JSON.stringify(readingLists));
+    writeJsonStorage('reading_lists', readingLists);
   }, [readingLists]);
 
   const addToList = useCallback((arxivId: string, listName: string | null) => {
